@@ -2,6 +2,7 @@ package com.drajer.ecr.anonymizer.service;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +43,7 @@ public class FilterDataService {
 				boolean removalAll = item.containsKey("removeAll") && (boolean) item.get("removeAll");
 
 				if (targetElement != null) {
-					List<String> paths = List.of(targetElement.split("\\."));
+					List<String> paths = Arrays.asList(targetElement.split("\\."));
 
 					process(root, paths, maskedElement, removalAll);
 				}
