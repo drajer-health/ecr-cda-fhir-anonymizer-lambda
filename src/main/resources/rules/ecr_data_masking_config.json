@@ -1,0 +1,300 @@
+{
+	"globalMaskedElements": [
+		{
+			"targetElement": "display",
+			"action": "mask",
+			"maskedData": {
+				"_display": {
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
+			},
+			"removeAll": true
+		},
+		{
+			"targetElement": "text",
+			"action": "mask",
+			"maskedData": {
+				
+			},
+			"removeAll": true
+		},
+		{
+			"targetElement": "identifier",
+			"action": "mask",
+			"maskedData": {
+				"identifier": {
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
+			},
+			"removeAll": true
+		}
+	],
+	"Patient": [
+		{
+			"targetElement": "name",
+			"action": "mask",
+			"maskedData": {
+				"name": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"targetElement": "telecom",
+			"action": "mask",
+			"maskedData": {
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"targetElement": "address.line",
+			"action": "mask",
+			"maskedData": {
+			}
+		},
+		{
+			"targetElement": "contact.name",
+			"action": "mask",
+			"maskedData": {
+				"name": {
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
+			}
+		},
+		{
+			"targetElement": "contact.telecom",
+			"action": "mask",
+			"maskedData": {
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"targetElement": "contact.address",
+			"action": "mask",
+			"maskedData": {
+				"address": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		}
+	],
+	"Organization": [
+		{
+			"targetElement": "telecom",
+			"action": "mask",
+			"maskedData": {
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		}
+	],
+	"Immunization": [
+		{
+			"targetElement": "performer",
+			"action": "mask",
+			"maskedData": {
+				"performer": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		}
+	],
+	"RelatedPerson": [
+		{
+			"targetElement": "name",
+			"action": "mask",
+			"maskedData": {
+				"name": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"targetElement": "address",
+			"action": "mask",
+			"maskedData": {
+				"address": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"targetElement": "telecom",
+			"action": "mask",
+			"maskedData": {
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		}
+	],
+	"Location": [
+		{
+			"targetElement": "telecom",
+			"action": "mask",
+			"maskedData": {
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		}
+	],
+	"PractitionerRole": [
+		{
+			"targetElement": "telecom",
+			"action": "mask",
+			"maskedData": {
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		}
+	],
+	"Practitioner": [
+		{
+			"targetElement": "telecom",
+			"action": "mask",
+			"maskedData": {
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"targetElement": "address",
+			"action": "mask",
+			"maskedData": {
+				"address": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"targetElement": "name",
+			"action": "mask",
+			"maskedData": {
+				"name": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		}
+	]
+}
