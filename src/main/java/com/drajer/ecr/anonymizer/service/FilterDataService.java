@@ -1,13 +1,18 @@
 package com.drajer.ecr.anonymizer.service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 
+import com.amazonaws.services.s3.model.S3DataSource.Utils;
+import com.drajer.ecr.anonymizer.utils.FileUtils;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -19,7 +24,6 @@ public class FilterDataService {
 	private Map<String, List<Map<String, Object>>> ecrDataMaskingConfigList = null;
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
-
 
 	/**
 	 * Processes the input JSON string by masking specified elements based on the
@@ -214,6 +218,11 @@ public class FilterDataService {
 	 */
 	@SuppressWarnings("unchecked")
 	private List<Map<String, Object>> getConfigList(String key) {
+		String ecrAnonymizerConfigFile = readPropertiesFile().getProperty("ecr.anonymizer.config.file");
+
+		ecrDataMaskingConfigList = FileUtils.readFileContents(ecrAnonymizerConfigFile,
+				new TypeReference<Map<String, List<Map<String, Object>>>>() {
+				});
 		Object value = ecrDataMaskingConfigList.get(key);
 		if (value != null) {
 			if (value instanceof List) {
@@ -225,6 +234,18 @@ public class FilterDataService {
 			throw new IllegalArgumentException("The value for key '" + key + "' is not a list of maps.");
 		}
 		return null;
+	}
+
+	private Properties readPropertiesFile() {
+		ClassLoader classLoader = Utils.class.getClassLoader();
+		try {
+			InputStream is = classLoader.getResourceAsStream("application.properties");
+			Properties prop = new Properties();
+			prop.load(is);
+			return prop;
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 }
