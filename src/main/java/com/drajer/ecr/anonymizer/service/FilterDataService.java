@@ -119,8 +119,9 @@ public class FilterDataService {
 	 * @param removeAll     A boolean flag indicating whether all occurrences of the
 	 *                      specified path should be removed.
 	 */
-	private void processArray(ArrayNode arrayNode, List<String> pathToRemove, Map<String, Object> maskedElement,
+	private void processArray(ArrayNode arrayNode, List<String> pathToRemoveParm, Map<String, Object> maskedElement,
 			boolean removeAll) {
+		List<String> pathToRemove = new ArrayList(Arrays.asList(pathToRemoveParm));
 		ObjectNode updatedObjectNode = JsonNodeFactory.instance.objectNode();
 		Iterator<JsonNode> elements = arrayNode.elements();
 		while (elements.hasNext()) {
