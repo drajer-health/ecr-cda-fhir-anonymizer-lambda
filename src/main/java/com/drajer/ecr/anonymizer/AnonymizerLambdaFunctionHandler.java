@@ -105,7 +105,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 				context.getLogger().log("Output not generated check logs ");
 			} else {
 				context.getLogger().log("Writing output file ");
-				this.writeFile(processedDataBundleXml, keyPrefix, processedDataBundleXml, context);
+				this.writeFile(processedDataBundleXml, bucket, keyPrefix, context);
 				context.getLogger().log("Output Generated  " + bucket + "/" + keyPrefix);
 
 			}
@@ -192,6 +192,10 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 			meta.setContentLength(contentAsBytes.length);
 			meta.setContentType("text/xml");
 
+			context.getLogger().log("bucketName ::::"+bucketName);
+			context.getLogger().log("keyPrefix + createAnonymizerFilename(keyPrefix) ::::"+keyPrefix + createAnonymizerFilename(keyPrefix));
+			context.getLogger().log("meta ::::"+keyPrefix + meta.toString());
+			
 			// Uploading to S3 destination bucket
 			s3Client.putObject(bucketName, keyPrefix + createAnonymizerFilename(keyPrefix), is, meta);
 			is.close();
