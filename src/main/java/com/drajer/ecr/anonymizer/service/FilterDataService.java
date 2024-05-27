@@ -21,8 +21,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class FilterDataService {
 
-	private Map<String, List<Map<String, Object>>> ecrDataMaskingConfigList = null;
-
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	/**
@@ -219,8 +217,7 @@ public class FilterDataService {
 	@SuppressWarnings("unchecked")
 	private List<Map<String, Object>> getConfigList(String key) {
 		String ecrAnonymizerConfigFile = readPropertiesFile().getProperty("ecr.anonymizer.config.file");
-
-		ecrDataMaskingConfigList = FileUtils.readFileContents(ecrAnonymizerConfigFile,
+		Map<String, List<Map<String, Object>>> ecrDataMaskingConfigList = FileUtils.readFileContents(ecrAnonymizerConfigFile,
 				new TypeReference<Map<String, List<Map<String, Object>>>>() {
 				});
 		Object value = ecrDataMaskingConfigList.get(key);
