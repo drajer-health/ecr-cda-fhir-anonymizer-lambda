@@ -37,19 +37,35 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 		// call ccda -- to fhir object
 		// convert fhir object to anonymizer
 		// write anonymizer to bucket
+		try {
+			S3EventNotificationRecord record = event.getRecords().get(0);
+			String key = record.getS3().getObject().getKey();
+			String bucket = record.getS3().getBucket().getName();
+			context.getLogger().log("EventName:" + record.getEventName());
+			context.getLogger().log("BucketName:" + bucket);
+			context.getLogger().log("Key:" + key);
+			// process RR
+			processEvent(bucket, key,context);
+			
+			key = key.toLowerCase().replace("rr", "eicr");
+			
+			//process EICR
+			processEvent(bucket, key,context);
+			return "SUCCESS";
+		} catch (Exception e) {
+			context.getLogger().log(e.getMessage());
+			e.printStackTrace();
+			return "ERROR:" + e.getMessage();
+		} finally {
+		}
+	}
+	
+	private String processEvent(String bucket, String key, Context context) {
 		InputStream input = null;
 		File outputFile = null;
 		String keyFileName = "";
 		String keyPrefix = "";
 		try {
-			S3EventNotificationRecord record = event.getRecords().get(0);
-			String key = record.getS3().getObject().getKey();
-			String bucket = record.getS3().getBucket().getName();
-
-			context.getLogger().log("EventName:" + record.getEventName());
-			context.getLogger().log("BucketName:" + bucket);
-			context.getLogger().log("Key:" + key);
-
 			if (key != null && key.indexOf(File.separator) != -1) {
 				keyFileName = key.substring(key.lastIndexOf(File.separator));
 				keyPrefix = key.substring(0, key.lastIndexOf(File.separator) + 1);
@@ -57,6 +73,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 				keyFileName = key;
 			}
 
+			context.getLogger().log("keyPrefix:::" + keyPrefix);
 			context.getLogger().log("JVM - Temp Folder Path:::" + destPath);
 
 			if (!this.isConverterBucket(bucket)) {
@@ -105,7 +122,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 				context.getLogger().log("Output not generated check logs ");
 			} else {
 				context.getLogger().log("Writing output file ");
-				this.writeFile(processedDataBundleXml, bucket, keyPrefix, context);
+				this.writeFile(processedDataBundleXml, bucket, "output_"+keyPrefix+"anonymizer.xml", context);
 				context.getLogger().log("Output Generated  " + bucket + "/" + keyPrefix);
 
 			}
@@ -193,20 +210,14 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 			meta.setContentType("text/xml");
 
 			context.getLogger().log("bucketName ::::"+bucketName);
-			context.getLogger().log("keyPrefix + createAnonymizerFilename(keyPrefix) ::::"+keyPrefix + createAnonymizerFilename(keyPrefix));
 			context.getLogger().log("meta ::::"+keyPrefix + meta.toString());
 			
 			// Uploading to S3 destination bucket
-			s3Client.putObject(bucketName, keyPrefix + createAnonymizerFilename(keyPrefix), is, meta);
+			s3Client.putObject(bucketName, keyPrefix , is, meta);
 			is.close();
 		} catch (Exception e) {
 			context.getLogger().log("ERROR:" + e.getMessage());
 			e.printStackTrace();
 		}
 	}
-
-	private String createAnonymizerFilename(String prefix) {
-		return prefix + "_" + UUID.randomUUID().toString() + "_anonymizer.xml";
-	}
-
 }

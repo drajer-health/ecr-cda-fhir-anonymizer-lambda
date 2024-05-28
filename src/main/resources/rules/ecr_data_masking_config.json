@@ -76,8 +76,32 @@
 			"targetElement": "address.line",
 			"action": "mask",
 			"maskedData": {
+				"_line": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
 			}
 		},
+		
+		{
+			"targetElement": "address.postalCode",
+			"action": "transform",
+			"maskedData": {
+			},
+			"transformation": {
+                "type": "truncate",
+                "max": 3
+            }
+}
+		
+		
+		,
 		{
 			"targetElement": "contact.name",
 			"action": "mask",

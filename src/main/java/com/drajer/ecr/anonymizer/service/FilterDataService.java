@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Properties;
 
 import com.amazonaws.services.s3.model.S3DataSource.Utils;
@@ -40,14 +41,12 @@ public class FilterDataService {
 		if (!maskedElements.isEmpty()) {
 			for (Map<String, Object> item : maskedElements) {
 				String targetElement = (String) item.get("targetElement");
-				@SuppressWarnings("unchecked")
-				Map<String, Object> maskedElement = (Map<String, Object>) item.get("maskedData");
-				boolean removalAll = item.containsKey("removeAll") && (boolean) item.get("removeAll");
+
+				boolean removeAll = Optional.ofNullable((Boolean) item.get("removeAll")).orElse(false);
 
 				if (targetElement != null) {
-					List<String> paths = Arrays.asList(targetElement.split("\\."));
-
-					process(root, paths, maskedElement, removalAll);
+					List<String> paths = new ArrayList(Arrays.asList(targetElement.split("\\.")));
+					process(root, paths, removeAll, item);
 				}
 			}
 		}
@@ -61,19 +60,19 @@ public class FilterDataService {
 	 *
 	 * @param node           The JSON node to process.
 	 * @param path           The path to match against.
-	 * @param maskedElements A map containing elements to be masked.
 	 * @param removeAll      Flag indicating whether to remove all matched elements.
+	 * @param maskedData
 	 */
-	public void process(JsonNode node, List<String> path, Map<String, Object> maskedElements, boolean removeAll) {
+	public void process(JsonNode node, List<String> path, boolean removeAll, Map<String, Object> maskedData) {
 		if (node.isObject()) {
-			processObject((ObjectNode) node, path, maskedElements, removeAll);
+			processObject((ObjectNode) node, path, removeAll, maskedData);
 		} else if (node.isArray()) {
-			processArray((ArrayNode) node, path, maskedElements, removeAll);
+			processArray((ArrayNode) node, path, removeAll, maskedData);
 		}
 	}
 
-	private void processObject(ObjectNode objectNode, List<String> path, Map<String, Object> maskedElements,
-			boolean removeAll) {
+	private void processObject(ObjectNode objectNode, List<String> path, boolean removeAll,
+			Map<String, Object> maskedData) {
 		ObjectNode updatedObjectNode = JsonNodeFactory.instance.objectNode();
 		List<String> fieldsToRemove = new ArrayList<>();
 
@@ -89,13 +88,13 @@ public class FilterDataService {
 
 				if (newPath.isEmpty() || removeAll) {
 					fieldsToRemove.add(key);
-					ObjectNode maskedNode = createMaskedNode(maskedElements, key);
+					ObjectNode maskedNode = createMaskedNode(maskedData, key, value);
 					updatedObjectNode.setAll(maskedNode);
 				} else {
-					process(value, newPath, maskedElements, removeAll);
+					process(value, newPath, removeAll, maskedData);
 				}
 			} else {
-				process(value, path, maskedElements, removeAll);
+				process(value, path, removeAll, maskedData);
 			}
 		}
 
@@ -113,15 +112,14 @@ public class FilterDataService {
 	 *                      process.
 	 * @param pathToRemove  A {@link List} of {@link String}s representing the paths
 	 *                      to be removed from JSON objects.
-	 * @param maskedElement A {@link Map} containing the elements to be masked, with
+	 * @param maskedData A {@link Map} containing the elements to be masked, with
 	 *                      keys representing the paths and values representing the
 	 *                      masking values.
 	 * @param removeAll     A boolean flag indicating whether all occurrences of the
 	 *                      specified path should be removed.
 	 */
-	private void processArray(ArrayNode arrayNode, List<String> pathToRemoveParm, Map<String, Object> maskedElement,
-			boolean removeAll) {
-		List<String> pathToRemove = new ArrayList(Arrays.asList(pathToRemoveParm));
+	private void processArray(ArrayNode arrayNode, List<String> pathToRemove, boolean removeAll,
+			Map<String, Object> maskedData) {
 		ObjectNode updatedObjectNode = JsonNodeFactory.instance.objectNode();
 		Iterator<JsonNode> elements = arrayNode.elements();
 		while (elements.hasNext()) {
@@ -137,19 +135,19 @@ public class FilterDataService {
 					if (isMatchingPath(key, pathToRemove)) {
 						if (pathToRemove.size() == 1) {
 							fieldsToRemove.add(key);
-							ObjectNode maskedNode = createMaskedNode(maskedElement, key);
+							ObjectNode maskedNode = createMaskedNode(maskedData, key, value);
 							updatedObjectNode.setAll(maskedNode);
 						} else {
 							if (!removeAll) {
 								pathToRemove.remove(0);
 							}
 							if (value.isObject() || value.isArray()) {
-								process(value, pathToRemove, maskedElement, removeAll);
+								process(value, pathToRemove, removeAll, maskedData);
 							}
 						}
 					} else {
 						if (value.isObject() || value.isArray()) {
-							process(value, pathToRemove, maskedElement, removeAll);
+							process(value, pathToRemove, removeAll, maskedData);
 						}
 					}
 				}
@@ -168,20 +166,83 @@ public class FilterDataService {
 		return key.equals(path.get(0));
 	}
 
-	private ObjectNode createMaskedNode(Map<String, Object> maskedElement, String key) {
+	public ObjectNode createMaskedNode(Map<String, Object> maskedData, String key, JsonNode value) {
 		ObjectNode maskedNode = JsonNodeFactory.instance.objectNode();
 
-		if (maskedElement != null && !maskedElement.isEmpty()) {
-			maskedElement.entrySet();
-			for (Entry<String, Object> data : maskedElement.entrySet()) {
-				if (key.equals(data.getKey()) || data.getKey().equals("_" + key)) {
-					// Convert the value to a JsonNode
-					JsonNode jsonNodeValue = objectMapper.valueToTree(data.getValue());
-					maskedNode.set(data.getKey(), jsonNodeValue);
-				}
+		String action = Optional.ofNullable((String) maskedData.get("action")).orElse("");
 
-			}
+		switch (action.toLowerCase()) {
+		case "mask":
+			return applyMask(maskedNode, maskedData, key);
+		case "transform":
+			return applyTransformation(maskedNode, maskedData, key, value);
+		default:
 			return maskedNode;
+		}
+	}
+
+	/**
+	 * Applies masking to the JSON node based on the provided masked data.
+	 *
+	 * @param maskedNode the ObjectNode to which masked data will be added.
+	 * @param maskData   a map containing the masking data.
+	 * @param key        the key to be checked against the masked data.
+	 * @return an ObjectNode with the masked data.
+	 */
+	private ObjectNode applyMask(ObjectNode maskedNode, Map<String, Object> maskData, String key) {
+		Map<String, Object> maskedElement = (Map<String, Object>) maskData.get("maskedData");
+
+		if (maskedElement != null && !maskedElement.isEmpty()) {
+			maskedElement.forEach((dataKey, dataValue) -> {
+				if (key.equals(dataKey) || dataKey.equals("_" + key)) {
+					JsonNode jsonNodeValue = objectMapper.valueToTree(dataValue);
+					maskedNode.set(dataKey, jsonNodeValue);
+				}
+			});
+		}
+		return maskedNode;
+	}
+
+	/**
+	 * Applies transformation to the JSON node based on the provided transformation
+	 * data.
+	 *
+	 * @param maskedNode the ObjectNode to which transformed data will be added.
+	 * @param maskData   a map containing the transformation data.
+	 * @param key        the key to be checked against the transformation data.
+	 * @param value      the original value associated with the key.
+	 * @return an ObjectNode with the transformed data.
+	 */
+	private ObjectNode applyTransformation(ObjectNode maskedNode, Map<String, Object> maskData, String key,
+			JsonNode value) {
+		Map<String, Object> transformationRule = (Map<String, Object>) maskData.get("transformation");
+
+		if (transformationRule != null && !transformationRule.isEmpty()) {
+			return transformField(maskedNode, transformationRule, key, value);
+		}
+		return maskedNode;
+	}
+
+	/**
+	 * Transforms the field based on the provided transformation rules.
+	 *
+	 * @param maskedNode     the ObjectNode to which transformed data will be added.
+	 * @param transformation a map containing the transformation rules.
+	 * @param key            the key to be checked against the transformation rules.
+	 * @param value          the original value associated with the key.
+	 * @return an ObjectNode with the transformed data.
+	 */
+	private ObjectNode transformField(ObjectNode maskedNode, Map<String, Object> transformation, String key,
+			JsonNode value) {
+		String type = Optional.ofNullable((String) transformation.get("type")).orElse("");
+
+		if ("truncate".equalsIgnoreCase(type)) {
+			int max = Optional.ofNullable((Integer) transformation.get("max")).orElse(0);
+
+			if (value != null && value.isTextual() && value.textValue().length() > max) {
+				String truncatedValue = value.textValue().substring(0, max);
+				maskedNode.put(key, truncatedValue);
+			}
 		}
 		return maskedNode;
 	}
@@ -221,6 +282,7 @@ public class FilterDataService {
 		Map<String, List<Map<String, Object>>> ecrDataMaskingConfigList = FileUtils.readFileContents(ecrAnonymizerConfigFile,
 				new TypeReference<Map<String, List<Map<String, Object>>>>() {
 				});
+		
 		Object value = ecrDataMaskingConfigList.get(key);
 		if (value != null) {
 			if (value instanceof List) {
@@ -233,7 +295,7 @@ public class FilterDataService {
 		}
 		return null;
 	}
-
+	
 	private Properties readPropertiesFile() {
 		ClassLoader classLoader = Utils.class.getClassLoader();
 		try {
