@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--  Note: need to update the classes to match what is required here: http://build.fhir.org/narrative.html. Also update DocumentToHTML.xslt to support them. -->
-<xsl:stylesheet version="2.0" xmlns="http://www.w3.org/1999/xhtml" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:n1="urn:hl7-org:v3" xmlns:in="urn:lantana-com:inline-variable-data" xmlns:cda="urn:hl7-org:v3" 
-    exclude-result-prefixes="n1 in cda">
-
-    <xsl:import href="c-to-fhir-utility.xslt" />
+<xsl:stylesheet version="2.0" xmlns="http://www.w3.org/1999/xhtml" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:n1="urn:hl7-org:v3" xmlns:in="urn:lantana-com:inline-variable-data"
+    xmlns:cda="urn:hl7-org:v3" exclude-result-prefixes="n1 in cda">
 
     <!-- xsl:output method="html" indent="yes" encoding="UTF-8" doctype-system="http://www.w3.org/1999/xhtml" doctype-public="-//W3C//DTD HTML 4.01//EN"/ -->
     <xsl:param name="limit-external-images" select="'yes'" />
@@ -44,13 +42,8 @@
     </xsl:template-->
     <!-- produce browser rendered, human readable clinical document -->
     <xsl:template name="CDAtext">
-        <!-- Variable for identification of IG - moved out of Global var because XSpec can't deal with global vars -->
         <xsl:variable name="vCurrentIg">
-            <xsl:choose>
-                <xsl:when test="/cda:ClinicalDocument[cda:templateId/@root = '2.16.840.1.113883.10.20.15.2']">eICR</xsl:when>
-                <xsl:when test="/cda:ClinicalDocument[cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.1.2']">RR</xsl:when>
-                <xsl:otherwise>NA</xsl:otherwise>
-            </xsl:choose>
+            <xsl:apply-templates select="/" mode="currentIg" />
         </xsl:variable>
         <!-- START display top portion of clinical document -->
         <!-- Don't render the recordTarget, this wil come from the Patient resource -->
@@ -1384,11 +1377,9 @@
                 <xsl:when test="$attr-name = 'styleCode'">
                     <xsl:apply-templates select="." />
                 </xsl:when>
-                
+
                 <!-- MD: Suppress attr-name colspan in <td, it cause schema validation error -->
-                <xsl:when test="$attr-name = 'colspan'">
-                   
-                </xsl:when>
+                <xsl:when test="$attr-name = 'colspan'"> </xsl:when>
 
                 <xsl:when test="not(document('')/xsl:stylesheet/xsl:variable[@name = 'table-elem-attrs']/in:tableElems/in:elem[@name = $elem-name]/in:attr[@name = $attr-name])">
                     <!-- just silently suppress unused elements during FHIR conversion -->
@@ -1526,12 +1517,13 @@
             </xsl:when>
             <xsl:otherwise>
                 <p>WARNING: non-local image found <xsl:value-of select="$image-uri" />. Removing. If you wish non-local images preserved please set the limit-external-images param to 'no'.</p>
-                <xsl:message>WARNING: non-local image found <xsl:value-of select="$image-uri" />. Removing. If you wish non-local images preserved please set the limit-external-images param to 'no'.</xsl:message>
+                <xsl:message>WARNING: non-local image found <xsl:value-of select="$image-uri" />. Removing. If you wish non-local images preserved please set the limit-external-images param to
+                    'no'.</xsl:message>
             </xsl:otherwise>
         </xsl:choose>
     </xsl:template>
 
-  <!--<xsl:template match="n1:renderMultiMedia">
+    <!--<xsl:template match="n1:renderMultiMedia">
     <img xmlns="http://www.w3.org/1999/xhtml">
       <xsl:variable name="vReferencedObject">
         <xsl:value-of select="@referencedObject"/>
@@ -1543,7 +1535,7 @@
       <xsl:apply-templates select="node()" mode="narrative"/>
     </img>
   </xsl:template>  -->
-  
+
     <xsl:template match="n1:renderMultiMedia">
         <xsl:variable name="imageRef" select="@referencedObject" />
         <xsl:choose>

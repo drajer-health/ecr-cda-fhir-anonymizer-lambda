@@ -43,12 +43,13 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 			String bucket = record.getS3().getBucket().getName();
 			context.getLogger().log("EventName:" + record.getEventName());
 			context.getLogger().log("BucketName:" + bucket);
-			context.getLogger().log("Key:" + key);
+			context.getLogger().log("RR Key:" + key);
 			// process RR
 			processEvent(bucket, key,context);
 			
-			key = key.toLowerCase().replace("rr", "eicr");
+			key = key.toUpperCase().replace("RR_", "EICR_").replace(".XML", ".xml");
 			
+			context.getLogger().log("EICR Key:" + key);
 			//process EICR
 			processEvent(bucket, key,context);
 			return "SUCCESS";
@@ -64,16 +65,13 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 		InputStream input = null;
 		File outputFile = null;
 		String keyFileName = "";
-		String keyPrefix = "";
 		try {
 			if (key != null && key.indexOf(File.separator) != -1) {
 				keyFileName = key.substring(key.lastIndexOf(File.separator));
-				keyPrefix = key.substring(0, key.lastIndexOf(File.separator) + 1);
 			} else {
 				keyFileName = key;
 			}
 
-			context.getLogger().log("keyPrefix:::" + keyPrefix);
 			context.getLogger().log("JVM - Temp Folder Path:::" + destPath);
 
 			if (!this.isConverterBucket(bucket)) {
@@ -114,17 +112,38 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 			xsltTransformation(xsltFile.getAbsolutePath(), outputFile.getAbsolutePath(), randomUUID, context);
 
 			String responseXML = getFileContentAsString(randomUUID, context);
+			
+			String fileName = key;
+			context.getLogger().log("Before file name : "+fileName);
+			context.getLogger().log("key toLowerCase contains rr_ : "  +key.toLowerCase().contains("rr_"));
+			
+			if (key.toLowerCase().contains("rr_")) {
+				fileName = key.replace("RR_","FHIR_RR_");
+			}else {
+				fileName = key.replace("EICR_","FHIR_EICR_");
+			}
 
+			context.getLogger().log("FHIR file name : "+fileName);
+			//writing fhir xml
+			if (StringUtils.isNullOrEmpty(responseXML)) {
+				context.getLogger().log("Output not generated check logs ");
+			} else {
+				context.getLogger().log("Writing FHIR output file "+fileName);
+				this.writeFile(responseXML, bucket, fileName, context);
+				context.getLogger().log("FHIR Output Generated  "+bucket+"/"+fileName);
+			}			
+			
 			AnonymizerService anonymizerService = new AnonymizerService();
 			String processedDataBundleXml = anonymizerService.processBundleXml(responseXML);
-
+			fileName = "OUTPUT_"+ key.toUpperCase().replace(".XML", "_ANONYMIZER.xml");
+			context.getLogger().log("Anonymizer file name : "+fileName);
+			
 			if (StringUtils.isNullOrEmpty(processedDataBundleXml)) {
 				context.getLogger().log("Output not generated check logs ");
 			} else {
-				context.getLogger().log("Writing output file ");
-				this.writeFile(processedDataBundleXml, bucket, "output_"+keyPrefix+"anonymizer.xml", context);
-				context.getLogger().log("Output Generated  " + bucket + "/" + keyPrefix);
-
+				context.getLogger().log("Writing output file "+fileName);
+				this.writeFile(processedDataBundleXml, bucket, fileName, context);
+				context.getLogger().log("Output Generated  " + bucket + "/" + fileName);
 			}
 			return "SUCCESS";
 		} catch (Exception e) {

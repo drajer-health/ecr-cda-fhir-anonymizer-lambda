@@ -1,16 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xsl:stylesheet xmlns="http://hl7.org/fhir" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:cda="urn:hl7-org:v3"
-    xmlns:fhir="http://hl7.org/fhir" xmlns:sdtc="urn:hl7-org:sdtc" xmlns:xs="http://www.w3.org/2001/XMLSchema"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:lcg="http://www.lantanagroup.com"
-    version="2.0" exclude-result-prefixes="lcg xsl cda fhir xs xsi sdtc xhtml">
-
-    <xsl:import href="c-to-fhir-utility.xslt" />
-    <xsl:import href="cda2fhir-Narrative.xslt" />
+<xsl:stylesheet xmlns="http://hl7.org/fhir" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:sdtc="urn:hl7-org:sdtc"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:lcg="http://www.lantanagroup.com" version="2.0"
+    exclude-result-prefixes="lcg xsl cda fhir xs xsi sdtc xhtml">
 
     <xsl:template match="cda:ClinicalDocument" mode="bundle-entry">
         <xsl:call-template name="create-bundle-entry" />
 
-        <!-- MD add infulfillmentof -->
         <xsl:apply-templates select="cda:inFulfillmentOf" mode="bundle-entry" />
 
         <!-- MD: create the Patient will be referenced in RelatedPerson
@@ -34,18 +29,34 @@
             </xsl:when>
         </xsl:choose>
 
-
         <xsl:apply-templates select="cda:recordTarget" mode="bundle-entry" />
         <xsl:apply-templates select="cda:componentOf/cda:encompassingEncounter" mode="bundle-entry" />
         <xsl:apply-templates select="cda:author" mode="bundle-entry" />
         <xsl:apply-templates select="cda:custodian" mode="bundle-entry" />
+        <xsl:apply-templates select="cda:authorization" mode="bundle-entry" />
         <xsl:apply-templates select="cda:legalAuthenticator" mode="bundle-entry" />
         <xsl:apply-templates select="cda:authenticator" mode="bundle-entry" />
-        <xsl:apply-templates select="cda:participant" mode="bundle-entry" />
+        <!-- ECON (emergency contact) participants are dealt with separately -->
+        <xsl:apply-templates select="cda:participant[not(cda:associatedEntity[@classCode = 'ECON'])]" mode="bundle-entry" />
         <xsl:apply-templates select="cda:documentationOf/cda:serviceEvent" mode="bundle-entry" />
-        <!--        <xsl:apply-templates select="cda:informationRecipient/cda:intendedRecipient/cda:receivedOrganization" mode="bundle-entry" />-->
+        <!-- <xsl:apply-templates select="cda:informationRecipient/cda:intendedRecipient/cda:receivedOrganization" mode="bundle-entry" />-->
+        <xsl:apply-templates select="cda:dataEnterer" mode="bundle-entry" />
         <xsl:apply-templates select="cda:informationRecipient" mode="bundle-entry" />
+        <xsl:apply-templates select="cda:informant" mode="bundle-entry" />
+
         <xsl:apply-templates select="//cda:section/cda:author" mode="bundle-entry" />
+        <!--<!-\- Create entries for the performers in the Problem Concern Acts -\->
+        <xsl:apply-templates select="//cda:act[cda:templateId[@root = '2.16.840.1.113883.10.20.22.4.3']]/cda:performer" mode="bundle-entry" />-->
+
+        <!-- Provenance -->
+        <!-- The ClinicalDocument/dataEnterer and informant can either be referenced from a C-CDA on FHIR extension (which requires a dependency
+             on that IG, or from a Provenance resource - choosing the latter for now-->
+        <xsl:apply-templates select="cda:dataEnterer" mode="provenance" />
+        <xsl:apply-templates select="cda:informant" mode="provenance" />
+        <!-- The ClinicalDocument/legalAuthenticator and authenticator can have digital signatures. If this is the case, create Provenance resources, 
+            include the dig sig and a reference back to the Composition -->
+        <xsl:apply-templates select="cda:legalAuthenticator[sdtc:signatureText]" mode="provenance" />
+        <xsl:apply-templates select="cda:authenticator[sdtc:signatureText]" mode="provenance" />
 
     </xsl:template>
 
@@ -94,7 +105,7 @@
                 - for eCR versionNumber will go into the official FHIR extension
                 - for others versionNumber will go into the C-CDA on FHIR extension in Composition 
             -->
-            <!-- For eICR/RR we want to default version number to 1 when it's missing -->
+            <!-- For eICR/RR default version number to 1 when it's missing -->
             <xsl:comment>Version Number</xsl:comment>
             <xsl:choose>
                 <xsl:when test="
@@ -114,11 +125,15 @@
             <xsl:for-each select="cda:informationRecipient">
                 <xsl:apply-templates select="." mode="extension" />
             </xsl:for-each>
+            <!-- eICR Initiation Type Extension -->
+            <xsl:for-each select="cda:documentationOf/cda:serviceEvent[cda:code[@code = 'PHC1464']]">
+                <xsl:apply-templates select="." mode="extension" />
+            </xsl:for-each>
 
             <!-- MD: add transform  
-      <extension url="http://hl7.org/fhir/us/ccda/StructureDefinition/OrderExtension">
-      there can be multiple OrderExtensions, each OrderExtension reference one ServiceRequest
-      -->
+            <extension url="http://hl7.org/fhir/us/ccda/StructureDefinition/OrderExtension">
+            there can be multiple OrderExtensions, each OrderExtension reference one ServiceRequest
+            -->
             <xsl:for-each select="cda:inFulfillmentOf">
                 <extension url="http://hl7.org/fhir/us/ccda/StructureDefinition/OrderExtension">
                     <valueReference>
@@ -137,17 +152,11 @@
                     </identifier>
                 </xsl:otherwise>
             </xsl:choose>
-            <!--<identifier>
-                <system value="urn:ietf:rfc:3986" />
-                <!-\- <value value="urn:uuid:{$newSetIdUUID}" />  -\->
-                <value value="urn:uuid:{cda:setId/@root}" />
-            </identifier>-->
             <status value="final" />
             <xsl:apply-templates select="cda:code">
                 <xsl:with-param name="pElementName">type</xsl:with-param>
             </xsl:apply-templates>
             <subject>
-                <!-- TODO: handle multiple record targets (record as a group) -->
                 <reference value="urn:uuid:{cda:recordTarget/@lcg:uuid}" />
             </subject>
             <xsl:if test="cda:componentOf/cda:encompassingEncounter">
@@ -170,8 +179,10 @@
                     <xsl:value-of select="cda:title" />
                 </xsl:attribute>
             </title>
-            <!-- Composition.confidentiality is deprecated. Use Composition.meta.security instead with a code from http://terminology.hl7.org/ValueSet/v3-ConfidentialityClassification -->
-            <!-- 
+            <!-- Composition.confidentiality is deprecated IN R5. 
+                eCR is R4.
+                For R5 Use Composition.meta.security instead with a code from http://terminology.hl7.org/ValueSet/v3-ConfidentialityClassification -->
+
             <xsl:if test="cda:confidentialityCode/@code">
                 <confidentiality>
                     <xsl:attribute name="value">
@@ -179,7 +190,7 @@
                     </xsl:attribute>
                 </confidentiality>
             </xsl:if>
-            -->
+
             <xsl:for-each select="cda:legalAuthenticator | cda:authenticator">
                 <attester>
                     <xsl:choose>
@@ -198,45 +209,50 @@
                     </party>
                 </attester>
             </xsl:for-each>
-            <!--
-            <xsl:if test="cda:legalAuthenticator">
-                <attester>
-                    <mode value="legal"/>
-                    <xsl:if test="cda:legalAuthenticator/cda:time/@value">
-                        <time value="{lcg:cdaTS2date(cda:legalAuthenticator/cda:time/@value)}"/>
-                    </xsl:if>
-                    <party>
-                        <xsl:apply-templates select="cda:legalAuthenticator/cda:assignedEntity" mode="reference"/>
-                    </party>
-                </attester>
-            </xsl:if>
-            -->
 
             <custodian>
                 <xsl:apply-templates select="cda:custodian" mode="reference" />
             </custodian>
 
-            <!-- relatesTo contains the ClinicalDocument.id of the CDA document 
-           (versionNumber and setId can be found using id as id is unique across all documents) -->
+            <!-- relatesTo:sliceTransformed - Document or Composition that this Composition is transformed from 
+                 ClinicalDocument.id (globally unique)
+            -->
             <relatesTo>
                 <code value="transforms" />
                 <xsl:apply-templates select="cda:id">
                     <xsl:with-param name="pElementName">targetIdentifier</xsl:with-param>
                 </xsl:apply-templates>
             </relatesTo>
-            <xsl:apply-templates select="cda:documentationOf/cda:serviceEvent" mode="composition-event" />
+
+            <!-- relatesTo:sliceReplaced - Document or Composition that this Composition replaces (later version) 
+                    Bundle.identifier = ClinicalDocument.id
+                    Composition.identifier is equivalent to ClinicalDocument.setId in CDA
+                    Composition.versionNumber = ClinicalDocument.versionNumber in CDA
+                    ClinicalDocument.id is globally unique, can get versionNumber and setId from this globally unique id
+            -->
+            <xsl:for-each select="cda:relatedDocument[@typeCode = 'RPLC']">
+                <relatesTo>
+                    <code value="replaces" />
+                    <xsl:apply-templates select="cda:parentDocument/cda:id">
+                        <xsl:with-param name="pElementName">targetIdentifier</xsl:with-param>
+                    </xsl:apply-templates>
+                </relatesTo>
+            </xsl:for-each>
+
+            <!-- event -->
+            <xsl:apply-templates select="cda:documentationOf/cda:serviceEvent[not(cda:code[@code = 'PHC1464'])]" mode="reference">
+                <xsl:with-param name="wrapping-elements">event/detail</xsl:with-param>
+            </xsl:apply-templates>
+            <!-- sections -->
             <xsl:apply-templates select="cda:component/cda:structuredBody/cda:component/cda:section" />
             <!-- If this is eICR and there are missing required sections 
                  (required: Reason for Visit, Chief Complaint, History of Present Illness, Problems, Results, Medication Adminstration, Social History) 
                  add them with no data -->
             <xsl:variable name="vCurrentIg">
-                <xsl:choose>
-                    <xsl:when test="/cda:ClinicalDocument[cda:templateId/@root = '2.16.840.1.113883.10.20.15.2']">eICR</xsl:when>
-                    <xsl:when test="/cda:ClinicalDocument[cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.1.2']">RR</xsl:when>
-                    <xsl:otherwise>NA</xsl:otherwise>
-                </xsl:choose>
+                <xsl:apply-templates select="/" mode="currentIg" />
             </xsl:variable>
 
+            <!-- Reason for Visit is a required eICR section, if it's missing, add it with text of "no information" -->
             <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.12')">
                 <section>
                     <title value="REASON FOR VISIT" />
@@ -253,7 +269,8 @@
                     </text>
                 </section>
             </xsl:if>
-            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '1.3.6.1.4.1.19376.1.5.3.1.1.13.2.1')" >
+            <!-- Chief Complaint is a required eICR section, if it's missing, add it with text of "no information" -->
+            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '1.3.6.1.4.1.19376.1.5.3.1.1.13.2.1')">
                 <section>
                     <title value="CHIEF COMPLAINT" />
                     <code>
@@ -269,13 +286,14 @@
                     </text>
                 </section>
             </xsl:if>
-            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '1.3.6.1.4.1.19376.1.5.3.1.3.4')" >
+            <!-- History of Present Illness is a required eICR section, if it's missing, add it with text of "no information" -->
+            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '1.3.6.1.4.1.19376.1.5.3.1.3.4')">
                 <section>
                     <title value="HISTORY OF PRESENT ILLNESS" />
                     <code>
                         <coding>
                             <system value="http://loinc.org" />
-                            <code value="10154-3" />
+                            <code value="10164-2" />
                             <display value="History of Present illness Narrative" />
                         </coding>
                     </code>
@@ -285,7 +303,8 @@
                     </text>
                 </section>
             </xsl:if>
-            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.5.1')" >
+            <!-- Problem List is a required eICR section, if it's missing, add it with text of "no information" -->
+            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.5.1')">
                 <section>
                     <title value="PROBLEM LIST" />
                     <code>
@@ -301,7 +320,8 @@
                     </text>
                 </section>
             </xsl:if>
-            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.3.1')" >
+            <!-- Results is a required eICR section, if it's missing, add it with text of "no information" -->
+            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.3.1')">
                 <section>
                     <title value="RESULTS" />
                     <code>
@@ -315,15 +335,17 @@
                         <status value="generated" />
                         <div xmlns="http://www.w3.org/1999/xhtml">No information</div>
                     </text>
+
                 </section>
             </xsl:if>
-            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.38')" >
+            <!-- Medications Administered is a required eICR section, if it's missing, add it with text of "no information" -->
+            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.38')">
                 <section>
                     <title value="MEDICATIONS ADMINISTERED" />
                     <code>
                         <coding>
                             <system value="http://loinc.org" />
-                            <code value="10154-3" />
+                            <code value="29549-3" />
                             <display value="Medication administered Narrative" />
                         </coding>
                     </code>
@@ -333,7 +355,8 @@
                     </text>
                 </section>
             </xsl:if>
-            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.17')" >
+            <!-- Social History is a required eICR section, if it's missing, add it with text of "no information" -->
+            <xsl:if test="($vCurrentIg = 'eICR') and not(//cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.17')">
                 <section>
                     <title value="SOCIAL HISTORY" />
                     <code>
@@ -355,11 +378,7 @@
     <xsl:template match="cda:ClinicalDocument/cda:versionNumber">
         <!-- Variable for identification of IG - moved out of Global var because XSpec can't deal with global vars -->
         <xsl:variable name="vCurrentIg">
-            <xsl:choose>
-                <xsl:when test="/cda:ClinicalDocument[cda:templateId/@root = '2.16.840.1.113883.10.20.15.2']">eICR</xsl:when>
-                <xsl:when test="/cda:ClinicalDocument[cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.1.2']">RR</xsl:when>
-                <xsl:otherwise>NA</xsl:otherwise>
-            </xsl:choose>
+            <xsl:apply-templates select="/" mode="currentIg" />
         </xsl:variable>
         <!-- SG 20191204: eCR & RR use the "official" FHIR extension for version number - added logic to use -->
         <xsl:choose>
@@ -383,20 +402,38 @@
             <xsl:apply-templates select="/" mode="currentIg" />
         </xsl:variable>
 
+        <xsl:variable name="vSectionText">
+            <xsl:value-of select="cda:text/string()" />
+        </xsl:variable>
 
         <xsl:choose>
             <!-- Don't want the encounters section if this is eICR - the encounter information goes in Composition.Encounter-->
             <xsl:when test="$vCurrentIg = 'eICR' and cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.22.1'" />
             <!-- If this is eICR and there are sections with no data - we don't want to include them unless they are one of the required sections
                  (required: Reason for Visit, Chief Complaint, History of Present Illness, Problems, Results, Medication Adminstration, Social History) -->
-            <xsl:when
-                test="($vCurrentIg = 'eICR' and @nullFlavor = 'NI') and not(cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.12') and not(cda:templateId/@root = '1.3.6.1.4.1.19376.1.5.3.1.1.13.2.1') and not(cda:templateId/@root = '1.3.6.1.4.1.19376.1.5.3.1.3.4') and not(cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.5.1') and not(cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.3.1') and not(cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.38') and not(cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.17')" />
+            <!-- SG 20240429: Adding code to check that if there is a nullFlavor there is also no entry or section text (getting data that isn't correct with 
+                 the nullFlavor to indicated no information, but the section has data -->
+            <xsl:when test="
+                    ($vCurrentIg = 'eICR' and @nullFlavor = 'NI' and not(cda:entry) and not($vSectionText/string())) and
+                    not(cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.12') and
+                    not(cda:templateId/@root = '1.3.6.1.4.1.19376.1.5.3.1.1.13.2.1') and
+                    not(cda:templateId/@root = '1.3.6.1.4.1.19376.1.5.3.1.3.4') and
+                    not(cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.5.1') and
+                    not(cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.3.1') and
+                    not(cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.38') and
+                    not(cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.17')" />
+            <!-- If this isn't a required section, but it's a section that has to have an entry and 
+                there is @nullFlavor but no entry, don't include it -->
+            <xsl:when test="
+                    ($vCurrentIg = 'eICR' and @nullFlavor = 'NI' and not(cda:entry)) and
+                    (cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.10' or
+                    cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.2.1' or
+                    cda:templateId/@root = '2.16.840.1.113883.10.20.22.2.7.1')" />
 
             <xsl:otherwise>
                 <section>
                     <!-- Start: Section Extensions -->
-                    <xsl:if
-                        test="cda:templateId[@root = '2.16.840.1.113883.10.20.15.2.2.3'] or cda:templateId[@root = '2.16.840.1.113883.10.20.15.2.2.2']">
+                    <xsl:if test="cda:templateId[@root = '2.16.840.1.113883.10.20.15.2.2.3'] or cda:templateId[@root = '2.16.840.1.113883.10.20.15.2.2.2']">
                         <xsl:apply-templates select="." mode="extension" />
                     </xsl:if>
                     <!-- End: Section Extensions -->
@@ -420,42 +457,48 @@
                             </xsl:otherwise>
                         </xsl:choose>
                         <div xmlns="http://www.w3.org/1999/xhtml">
-                            <!-- MD: just in case there is no cda:text, need add a <p>no value</p> to avoid validation error -->
+                            <!-- MD: just in case there is no cda:text, add <p>No information</p> to avoid validation error -->
                             <xsl:choose>
-                                <xsl:when test="cda:text">
+                                <xsl:when test="$vSectionText/string()">
                                     <xsl:apply-templates select="cda:text" />
                                 </xsl:when>
                                 <xsl:otherwise>
                                     <p>
-                                        <xsl:value-of select="'no value'" />
+                                        <xsl:value-of select="'No information'" />
                                     </p>
                                 </xsl:otherwise>
                             </xsl:choose>
 
                         </div>
                     </text>
-                    <!-- SG: Birth Sex, Gender Identity, eICR Processing Status, Manually Initiated eICR, Reportability Response Priority are put in extensions in FHIR so we'll skip them -->
 
-                    <xsl:choose>
-                        <!-- MD:  History of Past illness Narrative should not have entry -->
-                        <xsl:when test="not(cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.65'])">
-                            <xsl:for-each select="
-                                    cda:entry[not(cda:observation/cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.200')]
-                                    [not(cda:observation/cda:templateId/@root = '2.16.840.1.113883.10.20.34.3.45')]
-                                    [not(cda:observation/cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.3.48')]
-                                    [not(cda:act/cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.3.29')]
-                                    [not(cda:act/cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.3.22')]
-                                    [not(cda:act/cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.3.7')]
-                                    [not(cda:observation/cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.3.30')]">
+                    <!-- use predefined key that uses a list of templates to suppress in the file templates-to-suppress.xml -->
+                    <xsl:for-each select="
+                            cda:entry[
+                            cda:*[not(cda:templateId[key('templates-to-suppress-key', @root)])]
+                            [not(cda:code/@code = '8462-4')]
+                            ]">
 
-                                <xsl:apply-templates select="cda:*" mode="reference">
-                                    <xsl:with-param name="wrapping-elements">entry</xsl:with-param>
-                                </xsl:apply-templates>
+                        <xsl:apply-templates select="cda:*" mode="reference">
+                            <xsl:with-param name="wrapping-elements">entry</xsl:with-param>
+                        </xsl:apply-templates>
+                    </xsl:for-each>
 
-                            </xsl:for-each>
-                        </xsl:when>
-                    </xsl:choose>
+                    <!-- get triggers lower in the hierarchy -->
+                    <xsl:for-each select="
+                            descendant::cda:entryRelationship
+                            [descendant::cda:*/descendant::cda:*[3]]
+                            [not(preceding-sibling::cda:templateId[@root = '2.16.840.1.113883.10.20.22.4.3'])]
+                            [not(cda:*[cda:templateId[@root = '2.16.840.1.113883.10.20.22.4.17']][../../../cda:substanceAdministration[@moodCode = 'INT']])]
+                            [cda:*
+                            [not(cda:templateId[key('templates-to-suppress-key', @root)])]
+                            [not(cda:code/@code = '8462-4')]
+                            ]">
 
+                        <xsl:apply-templates select="cda:*" mode="reference">
+                            <xsl:with-param name="wrapping-elements">entry</xsl:with-param>
+                        </xsl:apply-templates>
+                    </xsl:for-each>
 
                     <!-- Pregnancy Outcome is contained in Pregnancy Status in CDA but not in FHIR (it has a focus of the related pregnancy observation instead) -->
                     <xsl:if test="cda:code/@code = '90767-5'">
@@ -465,38 +508,57 @@
                             </xsl:apply-templates>
                         </xsl:for-each>
                     </xsl:if>
+
                     <xsl:apply-templates select="cda:component/cda:section" />
                 </section>
             </xsl:otherwise>
         </xsl:choose>
     </xsl:template>
 
-    <xsl:template match="cda:serviceEvent" mode="composition-event">
-        <event>
-            <xsl:comment>Add CCDA-on-FHIR-Performer extension after C-CDA on FHIR is published</xsl:comment>
-
-            <xsl:for-each select="cda:performer/cda:assignedEntity">
-
-                <extension url="http://hl7.org/fhir/us/ccda/StructureDefinition/PerformerExtension">
-                    <xsl:apply-templates select="." mode="reference">
-                        <xsl:with-param name="wrapping-elements">valueReference</xsl:with-param>
-                    </xsl:apply-templates>
-                </extension>
-            </xsl:for-each>
-
-            <!-- MD: transform cda:serviceEvent/cda:code to fhir:Composition/fhir:event/fhir:code -->
-            <xsl:apply-templates select="cda:code">
-                <xsl:with-param name="pElementName">code</xsl:with-param>
-            </xsl:apply-templates>
-
-            <xsl:apply-templates select="cda:effectiveTime" mode="period" />
-
-            <!-- CarePlan resource not strictly needed for ONC-HIP use casem, but added at Clinician's on FHIR event.  -->
-
-            <detail>
-                <xsl:apply-templates select="." mode="reference" />
-            </detail>
-        </event>
+    <xsl:template name="create-empty-result">
+        <entry>
+            <fullUrl value="urn:uuid:{@lcg:uuid}" />
+            <resource>
+                <entry>
+                    <Observation xmlns="http://hl7.org/fhir">
+                        <meta>
+                            <profile value="http://hl7.org/fhir/us/core/StructureDefinition/us-core-observation-lab" />
+                        </meta>
+                        <text>
+                            <status value="generated" />
+                            <div xmlns="http://www.w3.org/1999/xhtml">
+                                <p>
+                                    <b>No test reported</b>
+                                </p>
+                            </div>
+                        </text>
+                        <status value="final" />
+                        <category>
+                            <coding>
+                                <system value="http://terminology.hl7.org/CodeSystem/observation-category" />
+                                <code value="laboratory" />
+                                <display value="Laboratory" />
+                            </coding>
+                            <text value="Laboratory" />
+                        </category>
+                        <code>
+                            <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                                <valueCode value="not performed" />
+                            </extension>
+                        </code>
+                        <subject>
+                            <reference value="urn:uuid:{cda:recordTarget/@lcg:uuid}" />
+                        </subject>
+                        <valueQuantity>
+                            <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                                <valueCode value="not performed" />
+                            </extension>
+                        </valueQuantity>
+                    </Observation>
+                </entry>
+            </resource>
+        </entry>
     </xsl:template>
+
 
 </xsl:stylesheet>

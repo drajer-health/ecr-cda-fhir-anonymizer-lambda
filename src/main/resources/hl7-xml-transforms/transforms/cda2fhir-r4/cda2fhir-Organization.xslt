@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xsl:stylesheet xmlns="http://hl7.org/fhir" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:sdtc="urn:hl7-org:sdtc" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:lcg="http://www.lantanagroup.com" exclude-result-prefixes="lcg xsl cda fhir xs xsi sdtc xhtml" version="2.0">
-
-    <xsl:import href="c-to-fhir-utility.xslt" />
+<xsl:stylesheet xmlns="http://hl7.org/fhir" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:sdtc="urn:hl7-org:sdtc"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:lcg="http://www.lantanagroup.com"
+    exclude-result-prefixes="lcg xsl cda fhir xs xsi sdtc xhtml" version="2.0">
 
     <xsl:template match="cda:custodian" mode="bundle-entry">
         <xsl:for-each select="cda:assignedCustodian/cda:representedCustodianOrganization">
@@ -10,7 +9,14 @@
         </xsl:for-each>
     </xsl:template>
 
-    <xsl:template match="cda:representedCustodianOrganization | cda:representedOrganization | cda:receivedOrganization | cda:serviceProviderOrganization | cda:participant[@typeCode = 'LOC'][not(cda:templateId[@root = '2.16.840.1.113883.10.20.15.2.4.4'])]" mode="bundle-entry">
+    <xsl:template match="
+            cda:representedCustodianOrganization |
+            cda:representedOrganization |
+            cda:receivedOrganization |
+            cda:providerOrganization |
+            cda:manufacturerOrganization |
+            cda:serviceProviderOrganization |
+            cda:participant[@typeCode = 'LOC'][not(cda:templateId[@root = '2.16.840.1.113883.10.20.15.2.4.4'])]" mode="bundle-entry">
         <xsl:call-template name="create-bundle-entry" />
     </xsl:template>
 
@@ -25,25 +31,20 @@
         </xsl:for-each>
     </xsl:template>
 
-
     <xsl:template match="cda:custodian">
         <xsl:for-each select="cda:assignedCustodian/cda:representedCustodianOrganization">
             <xsl:apply-templates select="." />
-            <!--
-            <xsl:call-template name="create-organization"/>
-            -->
         </xsl:for-each>
     </xsl:template>
 
-    <xsl:template match="cda:representedCustodianOrganization | cda:representedOrganization | cda:scopingOrganization | cda:receivedOrganization | cda:serviceProviderOrganization">
+    <xsl:template match="cda:representedCustodianOrganization | cda:representedOrganization | cda:scopingOrganization | cda:receivedOrganization | cda:serviceProviderOrganization | cda:providerOrganization | cda:manufacturerOrganization">
         <xsl:call-template name="create-organization" />
     </xsl:template>
 
     <!-- Organization from participant of type LOC -->
-    <xsl:template match="cda:participant[@typeCode = 'LOC'][cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.4.1' or cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.4.2' or cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.4.3']">
-      
+    <xsl:template
+        match="cda:participant[@typeCode = 'LOC'][cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.4.1' or cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.4.2' or cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.4.3']">
         <Organization>
-
             <xsl:choose>
                 <xsl:when test="cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.4.1'">
                     <meta>
@@ -61,7 +62,6 @@
                     </meta>
                 </xsl:when>
                 <xsl:otherwise>
-                    <!-- SG 20191211: Add meta.profile -->
                     <xsl:call-template name="add-participant-meta" />
                 </xsl:otherwise>
 
@@ -85,7 +85,6 @@
                 <xsl:with-param name="pElementName" select="'type'" />
             </xsl:apply-templates>
 
-
             <xsl:if test="cda:participantRole/cda:playingEntity/cda:name/text()">
                 <name value="{cda:participantRole/cda:playingEntity/cda:name}" />
             </xsl:if>
@@ -100,7 +99,7 @@
         <xsl:variable name="vCurrentIg">
             <xsl:call-template name="get-current-ig" />
         </xsl:variable>
-        
+
         <Organization>
             <!-- MD: for eICR Organization using us-ph-organization profile -->
             <xsl:choose>
@@ -109,7 +108,7 @@
                         <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-organization" />
                     </meta>
                 </xsl:when>
-            </xsl:choose>   
+            </xsl:choose>
             <xsl:choose>
                 <xsl:when test="cda:participantRole/cda:id">
                     <xsl:apply-templates select="cda:participantRole/cda:id" />
@@ -128,7 +127,6 @@
                 <xsl:with-param name="pElementName" select="'type'" />
             </xsl:apply-templates>
 
-
             <xsl:if test="cda:participantRole/cda:playingEntity/cda:name/text()">
                 <name value="{cda:participantRole/cda:playingEntity/cda:name}" />
             </xsl:if>
@@ -143,7 +141,7 @@
         <xsl:variable name="vCurrentIg">
             <xsl:call-template name="get-current-ig" />
         </xsl:variable>
-               
+
         <Organization>
             <!-- MD: for eICR Organization using us-ph-organization profile -->
             <xsl:choose>
@@ -156,9 +154,20 @@
                     <!-- SG 20191211: Add meta.profile -->
                     <xsl:call-template name="add-participant-meta" />
                 </xsl:otherwise>
-            </xsl:choose>  
+            </xsl:choose>
 
             <xsl:choose>
+                <!-- If this is an Organization without a person preceding-sibling 
+                     grab any ids that are preceding siblings because otherwise they will get
+                     lost - if there was a preceding sibling that was a person the ids
+                     would get put into a PractitionerRole -->
+                <xsl:when test="not(preceding-sibling::cda:assignedPerson) and cda:id">
+                    <xsl:apply-templates select="cda:id" />
+                    <xsl:apply-templates select="preceding-sibling::cda:id" />
+                </xsl:when>
+                <xsl:when test="not(preceding-sibling::cda:assignedPerson)">
+                    <xsl:apply-templates select="preceding-sibling::cda:id" />
+                </xsl:when>
                 <xsl:when test="cda:id">
                     <xsl:apply-templates select="cda:id" />
                 </xsl:when>
@@ -189,7 +198,7 @@
             doesn't have a telecom, check to see if its containing role has telecom(s) that
             we can use
             in the case of location/serviceProviderOrganization, let's check siblings
-      -->
+             -->
             <xsl:choose>
                 <!-- If the organization has a telecom, use it -->
                 <xsl:when test="cda:telecom">
@@ -206,8 +215,15 @@
                 <xsl:when test="following-sibling::*/cda:telecom">
                     <xsl:apply-templates select="following-sibling::*/cda:telecom" />
                 </xsl:when>
+                <xsl:otherwise>
+                    <telecom>
+                        <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                            <valueCode value="unknown" />
+                        </extension>
+                    </telecom>
+                </xsl:otherwise>
             </xsl:choose>
-            <!-- SG: US Core Organization needs an address so if this is a organization that
+            <!-- SG: US Public Health Organization needs an address so if this is a organization that
             doesn't have a address, check to see if its containing role has an address(s) that
             we can use 
             in the case of location/serviceProviderOrganization, let's check siblings
@@ -228,6 +244,13 @@
                 <xsl:when test="following-sibling::*/cda:addr">
                     <xsl:apply-templates select="following-sibling::*/cda:addr" />
                 </xsl:when>
+                <xsl:otherwise>
+                    <address>
+                        <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                            <valueCode value="unknown" />
+                        </extension>
+                    </address>
+                </xsl:otherwise>
             </xsl:choose>
         </Organization>
     </xsl:template>

@@ -1,5 +1,5 @@
 <mapping>
-    <!-- TODO: unmapped -->
+    
     <!-- eCR-Organization, eCR-patient, eCR-Practitioner, eCR-PractitionerRole, eCR-task, eicr-encounter, eicr-location  -->
     <map templateURI="urn:hl7ii:2.16.840.1.113883.10.20.22.4.131:2015-08-01" />
     <!-- Done: mapped -->
@@ -44,6 +44,8 @@
     <map templateURI="urn:hl7ii:2.16.840.1.113883.10.20.15.2.3.1:2021-01-01" profileURI="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-travel-history" />
 
     <map templateURI="urn:hl7ii:2.16.840.1.113883.10.20.15.2.3.1:2022-05-01" profileURI="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-travel-history" />
+    
+    <map templateURI="urn:hl7ii:2.16.840.1.113883.10.20.15.2.3.50:2021-01-01" profileURI="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-transportation-details" />
 
     <map templateURI="urn:hl7ii:2.16.840.1.113883.10.20.15.2.3.47:2021-01-01" profileURI="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-disability-status" />
 
@@ -128,8 +130,11 @@
     <map templateURI="urn:hl7ii:2.16.840.1.113883.10.20.15.2.3.55" profileURI="http://hl7.org/fhir/us/ecr/StructureDefinition/eicr-vaccine-credential-patient-assertion" />
     <map templateURI="urn:hl7ii:2.16.840.1.113883.10.20.15.2.3.55:2021-01-01" profileURI="http://hl7.org/fhir/us/ecr/StructureDefinition/eicr-vaccine-credential-patient-assertion" />
 
-
     <!-- MD Add  us-ph-tribal-affiliation-extension -->
     <map templateURI="urn:hl7ii:2.16.840.1.113883.10.20.15.2.3.48:2021-01-01" profileURI="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-tribal-affiliation-extension" />
+    
+    <map templateURI="urn:hl7ii:2.16.840.1.113883.10.20.22.4.500:2019-08-01" profileURI="http://hl7.org/fhir/us/core/StructureDefinition/us-core-careteam" />
+    
+    
 
 </mapping>
