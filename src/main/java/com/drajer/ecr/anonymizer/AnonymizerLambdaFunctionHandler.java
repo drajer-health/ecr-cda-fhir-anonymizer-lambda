@@ -54,7 +54,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 			}
 			context.getLogger().log("metaDataFileName : " + metaDataFileName);
 			//get metadata json
-			InputStream metadataInputStream = getObject(bucket,key);
+			InputStream metadataInputStream = getObject(bucket,metaDataFileName);
 			// get metdata map
 			Map<String, Object> metaDataMap = streamToMap(metadataInputStream);
 			// process RR
