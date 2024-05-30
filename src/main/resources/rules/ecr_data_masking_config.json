@@ -27,7 +27,7 @@
 			"targetElement": "identifier",
 			"action": "mask",
 			"maskedData": {
-				"identifier": {
+				"identifier": [{
 					"extension": [
 						{
 							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
@@ -35,6 +35,26 @@
 						}
 					]
 				}
+				]
+			},
+			"removeAll": true
+		},
+		{
+			"targetElement": "state",
+			"action": "condition-mask",
+			"maskedData": {
+				"_state": {
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
+			},
+			"condition": {
+				"key": "jurisdictionsToRetain",
+				"values": []
 			},
 			"removeAll": true
 		}
@@ -72,11 +92,12 @@
 				]
 			}
 		},
+		
 		{
-			"targetElement": "address.line",
+			"targetElement": "birthDate",
 			"action": "mask",
 			"maskedData": {
-				"_line": [
+				"_birthDate": 
 					{
 						"extension": [
 							{
@@ -85,23 +106,27 @@
 							}
 						]
 					}
-				]
+		
 			}
 		},
-		
+		{
+			"targetElement": "address.line",
+			"action": "mask",
+			"maskedData": {
+			
+			}
+		},
 		{
 			"targetElement": "address.postalCode",
 			"action": "transform",
 			"maskedData": {
+				
 			},
 			"transformation": {
-                "type": "truncate",
-                "max": 3
-            }
-}
-		
-		
-		,
+				"type": "truncate",
+				"max": 3
+			}
+		},
 		{
 			"targetElement": "contact.name",
 			"action": "mask",

@@ -3,8 +3,8 @@ package com.drajer.ecr.anonymizer.service;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
-import org.apache.http.HttpStatus;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
@@ -18,7 +18,7 @@ import ca.uhn.fhir.parser.IParser;
 
 public class AnonymizerService {
 
-	public String processBundleXml(String bundleXml) throws IOException {
+	public String processBundleXml(String bundleXml,Map<String, Object> metaDataMap) throws IOException {
 		FilterDataService filterDataService = new FilterDataService();
 		FhirContext fhirContext = FhirContext.forR4();
 		IParser parser = fhirContext.newXmlParser();
@@ -34,7 +34,7 @@ public class AnonymizerService {
 				String resourceType = fhirContext.getResourceType(resource);
 
 				String resourceJson = jsonParser.encodeResourceToString(resource);
-				JsonNode updatedResource = filterDataService.processJson(resourceJson, resourceType);
+				JsonNode updatedResource = filterDataService.processJson(resourceJson, metaDataMap, resourceType);
 
 				bundleEntryComponent.setFullUrl(entry.getFullUrl());
 
