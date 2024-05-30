@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.util.ResourceUtils;
@@ -24,6 +25,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.util.StringUtils;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import net.sf.saxon.Transform;
 
@@ -44,14 +46,27 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 			context.getLogger().log("EventName:" + record.getEventName());
 			context.getLogger().log("BucketName:" + bucket);
 			context.getLogger().log("RR Key:" + key);
+			String metaDataFileName = "";
+			if (key.contains("RR_")) {
+				metaDataFileName = key.replace("RR_", "Metadata_").replace(".xml", ".json");
+			}else {
+				metaDataFileName = key.replace("rr_", "Metadata_").replace(".xml", ".json");
+			}
+			context.getLogger().log("metaDataFileName : " + metaDataFileName);
+			//get metadata json
+			InputStream metadataInputStream = getObject(bucket,key);
+			// get metdata map
+			Map<String, Object> metaDataMap = streamToMap(metadataInputStream);
 			// process RR
-			processEvent(bucket, key,context);
-			
-			key = key.toUpperCase().replace("RR_", "EICR_").replace(".XML", ".xml");
-			
+			processEvent(bucket, key,context,metaDataMap);
+			if (key.contains("RR_")) {
+				key = key.replace("RR_", "EICR_");
+			}else {
+				key = key.replace("rr_", "eicr_");
+			}
 			context.getLogger().log("EICR Key:" + key);
 			//process EICR
-			processEvent(bucket, key,context);
+			processEvent(bucket, key,context,metaDataMap);
 			return "SUCCESS";
 		} catch (Exception e) {
 			context.getLogger().log(e.getMessage());
@@ -61,7 +76,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 		}
 	}
 	
-	private String processEvent(String bucket, String key, Context context) {
+	private String processEvent(String bucket, String key, Context context,Map<String, Object> metaDataMap) {
 		InputStream input = null;
 		File outputFile = null;
 		String keyFileName = "";
@@ -134,7 +149,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 			}			
 			
 			AnonymizerService anonymizerService = new AnonymizerService();
-			String processedDataBundleXml = anonymizerService.processBundleXml(responseXML);
+			String processedDataBundleXml = anonymizerService.processBundleXml(responseXML,metaDataMap);
 			fileName = "OUTPUT_"+ key.toUpperCase().replace(".XML", "_ANONYMIZER.xml");
 			context.getLogger().log("Anonymizer file name : "+fileName);
 			
@@ -238,5 +253,16 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 			context.getLogger().log("ERROR:" + e.getMessage());
 			e.printStackTrace();
 		}
+	}
+	
+	private InputStream getObject(String bucket, String key) throws IOException {
+		S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucket, key));
+		InputStream inputStream = s3Object.getObjectContent();
+		return inputStream;
+	}	
+	
+	private Map<String, Object> streamToMap(InputStream inputStream) throws IOException {
+		ObjectMapper objectMapper = new ObjectMapper();
+		return objectMapper.readValue(inputStream, Map.class);
 	}
 }

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +34,7 @@ public class FilterDataService {
 	 *         elements.
 	 * @throws IOException If there is an error reading the JSON string.
 	 */
-	public JsonNode processJson(String json, String resourceType) throws IOException {
+	public JsonNode processJson(String json, Map<String, Object> metaDataMap,String resourceType) throws IOException {
 		JsonNode root = objectMapper.readTree(json);
 
 		List<Map<String, Object>> maskedElements = getMaskedElementsForResource(resourceType);
@@ -46,6 +47,7 @@ public class FilterDataService {
 
 				if (targetElement != null) {
 					List<String> paths = new ArrayList(Arrays.asList(targetElement.split("\\.")));
+					item.put("metaData", metaDataMap);
 					process(root, paths, removeAll, item);
 				}
 			}
@@ -176,6 +178,8 @@ public class FilterDataService {
 			return applyMask(maskedNode, maskedData, key);
 		case "transform":
 			return applyTransformation(maskedNode, maskedData, key, value);
+		case "condition-mask":
+			return applyConditionMask(maskedNode, maskedData, key, value);			
 		default:
 			return maskedNode;
 		}
@@ -223,6 +227,25 @@ public class FilterDataService {
 		return maskedNode;
 	}
 
+	private ObjectNode applyConditionMask(ObjectNode maskedNode, Map<String, Object> maskData, String key,
+			JsonNode value) {
+		Map<String, Object> conditionRule = (Map<String, Object>) maskData.get("condition");
+		Map<String, Object> metaData = (Map<String, Object>) maskData.get("metaData");
+
+		if (!isValidCondition(conditionRule, value)) {
+			maskedNode.set(key, value);
+			return maskedNode;
+		}
+
+		List<String> conditionValueList = getConditionValueList(conditionRule, metaData);
+		String lowercaseValue = value.textValue().toLowerCase();
+		if (conditionValueList.stream().map(String::toLowerCase).anyMatch(lowercaseValue::equals)) {
+			return applyMask(maskedNode, maskData, key);
+		}
+
+		maskedNode.set(key, value);
+		return maskedNode;
+	}	
 	/**
 	 * Transforms the field based on the provided transformation rules.
 	 *
@@ -269,6 +292,19 @@ public class FilterDataService {
 		return combinedMaskedElements;
 	}
 
+	private List<String> getConditionValueList(Map<String, Object> conditionRule, Map<String, Object> metaData) {
+		List<String> conditionValueList = (List<String>) conditionRule.getOrDefault("values", Collections.emptyList());
+		Object conditionValueObj = metaData != null ? metaData.get(conditionRule.get("key")) : null;
+
+		if (conditionValueObj instanceof String) {
+
+			conditionValueList.addAll(new ArrayList(Arrays.asList(((String)conditionValueObj).split(","))));
+
+		} else if (conditionValueObj instanceof List) {
+			conditionValueList.addAll((List<String>) conditionValueObj);
+		}
+		return conditionValueList;
+	}	
 	/**
 	 * Retrieves the configuration list for the given key.
 	 *
@@ -296,6 +332,9 @@ public class FilterDataService {
 		return null;
 	}
 	
+	private boolean isValidCondition(Map<String, Object> conditionRule, JsonNode value) {
+		return conditionRule != null && !conditionRule.isEmpty() && value != null && value.isTextual();
+	}	
 	private Properties readPropertiesFile() {
 		ClassLoader classLoader = Utils.class.getClassLoader();
 		try {
