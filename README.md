@@ -79,8 +79,9 @@ Permissions: Create a new role with basic Lambda permissions or select your orga
             ]
         }
     ]
-}
-	``
+} 
+``
+	
 
 4. Click on button `Review policy` and then click `Save changes`
 
@@ -157,7 +158,7 @@ Choose the SQS queue and click `Create Queue`
     }
   ]
 }
-``
+```
 
 6. Click Save
 
