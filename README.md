@@ -121,6 +121,45 @@ To process the file from the S3 bucket, lambda function needs to be configured t
 |--|--|
 |BUCKET_NAME  | <- S3-FolderName ->  |
 
+### SQS Queue
+Choose the SQS queue and click `Create Queue` 
+
+1. Select `Standard` and Enter the Name for the Queue as `ecr-cda-fhir-anonymizer-s3-queue`
+   
+3. Enter 10 minutes as Visibility timeout
+   
+4. Server-Side encryption as `disabled`
+   
+5. Access Policy `Advanced`
+   
+6. Make neccessary changes to below and copy as in-line policy
+   ```
+   {
+  "Version": "2012-10-17",
+  "Id": "__default_policy_ID",
+  "Statement": [
+    {
+      "Sid": "__owner_statement",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "s3.amazonaws.com"
+      },
+      "Action": "SQS:SendMessage",
+      "Resource": "arn:aws:sqs:us-east-1:<<AWS_ACCOUNT_INFO>>:<<QUEUE_NAME>>",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceAccount": "<<AWS ACCOUNT INFO>> "
+        },
+        "ArnLike": {
+          "aws:SourceArn": "arn:aws:s3:::<<S3 BUCKET NAME>>"
+        }
+      }
+    }
+  ]
+}
+``
+
+6. Click Save
 
 ### Lambda Trigger
 Lambda function needs to be triggered, for this we need to add and configure the trigger. Follow the following steps to add the trigger to your lambda function.
@@ -129,13 +168,31 @@ Lambda function needs to be triggered, for this we need to add and configure the
 2. Click on `Add trigger`
 
 3. From the `Trigger configuration` drop down select
-	`S3` option
+	`SQS` option
 
-4. From the `Bucket` drop down select your bucket that this lambda function will listen.
+4. Choose or enter ther ARN of an SQS queue `ecr-cda-fhir-anonymizer-s3-queue` created from above step.
 
-5. Add the `Suffix` to add filter to the function. For example `RR`
+5. Make changes as required or have the defualts 
 
-6. Select the acknowledgement and click Add.
+6. Click Add.
+
+### S3 Event Notification
+
+1. Go to S3 bucket and to Properties Tab
+
+2. Scroll down to `Event Notification` and Click `Create event Notification`
+
+3. Enter Name `ecr-cda-fhir-anonymizer-s3-sqs-event`
+
+4. Enter Prefix as `RR/`
+
+5. Event Types as `All object create events`
+
+6. Destination as `SQS queue`
+
+7. Specify SQS queue as `ecr-cda-fhir-anonymizer-s3-queue`
+
+8. Click `Save Changes` 
 
 
-### At this point the Lambda function is created and configured to listen to the S3 Bucket.
+### At this point the Lambda function is created and configured to get messages from SQS whenever RR files are created in S3 Bucket.
