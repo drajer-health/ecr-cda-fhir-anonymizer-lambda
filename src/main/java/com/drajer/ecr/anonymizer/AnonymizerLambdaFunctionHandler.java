@@ -16,10 +16,11 @@ import org.springframework.util.ResourceUtils;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.amazonaws.services.lambda.runtime.events.S3Event;
+import com.amazonaws.services.lambda.runtime.events.SQSEvent;
+import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.event.S3EventNotification.S3EventNotificationRecord;
+import com.amazonaws.services.s3.event.S3EventNotification;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
@@ -29,28 +30,34 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import net.sf.saxon.Transform;
 
-public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, String> {
+public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent, String> {
 	private AmazonS3 s3Client = AmazonS3ClientBuilder.standard().build();
 	private String destPath = System.getProperty("java.io.tmpdir");
 	public static final int DEFAULT_BUFFER_SIZE = 8192;
 
 	@Override
-	public String handleRequest(S3Event event, Context context) {
+	public String handleRequest(SQSEvent event, Context context) {
 		// call ccda -- to fhir object
 		// convert fhir object to anonymizer
 		// write anonymizer to bucket
 		try {
-			S3EventNotificationRecord record = event.getRecords().get(0);
-			String key = record.getS3().getObject().getKey();
-			String bucket = record.getS3().getBucket().getName();
+			SQSMessage message = event.getRecords().get(0);
+	        String messageBody = message.getBody();
+	        S3EventNotification s3EventNotification = S3EventNotification.parseJson(messageBody);
+	        S3EventNotification.S3EventNotificationRecord record = s3EventNotification.getRecords().get(0);
+			
+	        String bucket = record.getS3().getBucket().getName();
+	        String key = record.getS3().getObject().getKey();			
+			
+			
 			context.getLogger().log("EventName:" + record.getEventName());
 			context.getLogger().log("BucketName:" + bucket);
 			context.getLogger().log("RR Key:" + key);
 			String metaDataFileName = "";
-			if (key.contains("RR_")) {
-				metaDataFileName = key.replace("RR_", "Metadata_").replace(".xml", ".json");
+			if (key.contains("RR")) {
+				metaDataFileName = key.replace("RR", "METADATA");
 			}else {
-				metaDataFileName = key.replace("rr_", "Metadata_").replace(".xml", ".json");
+				metaDataFileName = key.replace("rr", "metadata");
 			}
 			context.getLogger().log("metaDataFileName : " + metaDataFileName);
 			//get metadata json
@@ -59,10 +66,10 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 			Map<String, Object> metaDataMap = streamToMap(metadataInputStream);
 			// process RR
 			processEvent(bucket, key,context,metaDataMap);
-			if (key.contains("RR_")) {
-				key = key.replace("RR_", "EICR_");
+			if (key.contains("RR")) {
+				key = key.replace("RR", "EICR");
 			}else {
-				key = key.replace("rr_", "eicr_");
+				key = key.replace("rr", "eicr");
 			}
 			context.getLogger().log("EICR Key:" + key);
 			//process EICR
@@ -130,12 +137,12 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 			
 			String fileName = key;
 			context.getLogger().log("Before file name : "+fileName);
-			context.getLogger().log("key toLowerCase contains rr_ : "  +key.toLowerCase().contains("rr_"));
+			context.getLogger().log("key toLowerCase contains rr: "  +key.toLowerCase().contains("rr"));
 			
-			if (key.toLowerCase().contains("rr_")) {
-				fileName = key.replace("RR_","FHIR_RR_");
+			if (key.toLowerCase().contains("rr")) {
+				fileName = key.replace("RR","FHIR_RR");
 			}else {
-				fileName = key.replace("EICR_","FHIR_EICR_");
+				fileName = key.replace("EICR","FHIR_EICR");
 			}
 
 			context.getLogger().log("FHIR file name : "+fileName);
@@ -150,7 +157,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<S3Event, 
 			
 			AnonymizerService anonymizerService = new AnonymizerService();
 			String processedDataBundleXml = anonymizerService.processBundleXml(responseXML,metaDataMap);
-			fileName = "OUTPUT_"+ key.toUpperCase().replace(".XML", "_ANONYMIZER.xml");
+			fileName = "OUTPUT-"+ key;
 			context.getLogger().log("Anonymizer file name : "+fileName);
 			
 			if (StringUtils.isNullOrEmpty(processedDataBundleXml)) {
