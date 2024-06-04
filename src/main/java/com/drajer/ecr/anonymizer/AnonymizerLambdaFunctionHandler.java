@@ -125,7 +125,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			context.getLogger().log("---- s3Object-Content....:" + s3Object.getObjectMetadata().getContentType());
 
 			UUID randomUUID = UUID.randomUUID();
-			File xsltFile = ResourceUtils.getFile("classpath:hl7-xml-transforms/transforms/cda2fhir-r4/cda2fhir.xslt");
+			File xsltFile = ResourceUtils.getFile("classpath:hl7-xml-transforms/transforms/cda2fhir-r4/NativeUUIDGen-cda2fhir.xslt");
 
 			context.getLogger().log("--- Before Transformation XSLT---::" + xsltFile.getAbsolutePath());
 			context.getLogger().log("--- Before Transformation OUTPUT---::" + outputFile.getAbsolutePath());

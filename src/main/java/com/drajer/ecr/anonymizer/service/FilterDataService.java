@@ -239,7 +239,7 @@ public class FilterDataService {
 
 		List<String> conditionValueList = getConditionValueList(conditionRule, metaData);
 		String lowercaseValue = value.textValue().toLowerCase();
-		if (conditionValueList.stream().map(String::toLowerCase).anyMatch(lowercaseValue::equals)) {
+		if (conditionValueList.stream().map(String::toLowerCase).noneMatch(lowercaseValue::equals)) {
 			return applyMask(maskedNode, maskData, key);
 		}
 

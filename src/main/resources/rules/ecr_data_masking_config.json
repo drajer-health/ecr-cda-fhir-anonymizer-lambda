@@ -1,7 +1,23 @@
 {
 	"globalMaskedElements": [
 		{
-			"targetElement": "display",
+			"targetElement": "subject.display",
+			"action": "mask",
+			"maskedData": {
+				"_display": {
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
+			},
+			"removeAll": true
+			
+		},
+		{
+			"targetElement": "individual.display",
 			"action": "mask",
 			"maskedData": {
 				"_display": {
@@ -16,18 +32,10 @@
 			"removeAll": true
 		},
 		{
-			"targetElement": "text",
+			"targetElement": "practitioner.display",
 			"action": "mask",
 			"maskedData": {
-				
-			},
-			"removeAll": true
-		},
-		{
-			"targetElement": "identifier",
-			"action": "mask",
-			"maskedData": {
-				"identifier": [{
+				"_display": {
 					"extension": [
 						{
 							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
@@ -35,10 +43,43 @@
 						}
 					]
 				}
-				]
 			},
 			"removeAll": true
 		},
+		
+		{
+			"targetElement": "author.display",
+			"action": "mask",
+			"maskedData": {
+				"_display": {
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
+			},
+			"removeAll": true
+		},
+	
+		
+		{
+			"targetElement": "text",
+			"action": "mask",
+			"maskedData": {
+					"text": {
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
+			},
+			"removeAll": true
+		},
+	
 		{
 			"targetElement": "state",
 			"action": "condition-mask",
@@ -57,10 +98,29 @@
 				"values": []
 			},
 			"removeAll": true
-		}
-	],
+		}	
+		],
 	"Patient": [
-		{
+	
+	{
+			"targetElement": "identifier",
+			"action": "mask",
+			"maskedData": {
+				"identifier": [{
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
+				]
+			},
+			"removeAll": false
+		},
+	
+	
+	        {
 			"targetElement": "name",
 			"action": "mask",
 			"maskedData": {
@@ -194,10 +254,10 @@
 	],
 	"Immunization": [
 		{
-			"targetElement": "performer",
+			"targetElement": "performer.display",
 			"action": "mask",
 			"maskedData": {
-				"performer": [
+				"_display": 
 					{
 						"extension": [
 							{
@@ -206,12 +266,31 @@
 							}
 						]
 					}
-				]
+				
 			}
 		}
 	],
 	"RelatedPerson": [
-		{
+	
+	{
+			"targetElement": "identifier",
+			"action": "mask",
+			"maskedData": {
+				"identifier": [{
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
+				]
+			},
+			"removeAll": false
+		},
+	
+	
+	{
 			"targetElement": "name",
 			"action": "mask",
 			"maskedData": {
@@ -298,6 +377,24 @@
 	],
 	"Practitioner": [
 		{
+			"targetElement": "identifier",
+			"action": "mask",
+			"maskedData": {
+				"identifier": [{
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
+				]
+			},
+			"removeAll": true
+		},
+		
+		
+		{
 			"targetElement": "telecom",
 			"action": "mask",
 			"maskedData": {
@@ -345,5 +442,25 @@
 				]
 			}
 		}
+	],
+	"Observation": [
+		{
+			"targetElement": "employer.display",
+			"action": "mask",
+			"maskedData": {
+				"_display": 
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				
+			}
+		}
 	]
+	
+	
 }
