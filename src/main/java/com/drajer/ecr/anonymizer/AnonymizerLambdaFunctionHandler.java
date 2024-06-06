@@ -12,6 +12,7 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.UUID;
 
+import org.hl7.fhir.r4.model.Bundle;
 import org.springframework.util.ResourceUtils;
 
 import com.amazonaws.services.lambda.runtime.Context;
@@ -28,6 +29,8 @@ import com.amazonaws.util.StringUtils;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.IParser;
 import net.sf.saxon.Transform;
 
 public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent, String> {
@@ -65,7 +68,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			// get metdata map
 			Map<String, Object> metaDataMap = streamToMap(metadataInputStream);
 			// process RR
-			processEvent(bucket, key,context,metaDataMap);
+			Bundle rrBundle = processEvent(bucket, key,context,metaDataMap);
 			if (key.contains("RR")) {
 				key = key.replace("RR", "EICR");
 			}else {
@@ -73,7 +76,24 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			}
 			context.getLogger().log("EICR Key:" + key);
 			//process EICR
-			processEvent(bucket, key,context,metaDataMap);
+			Bundle eicrBundle = processEvent(bucket, key,context,metaDataMap);
+			AnonymizerService anonymizerService = new AnonymizerService();
+			Bundle eicrRRBundle = anonymizerService.addReportabilityResponseInformationSection(eicrBundle, rrBundle, null);
+
+			String uniqueFilename = "OUTPUT-"+ key;
+			IParser parser = FhirContext.forR4().newXmlParser();
+
+			String processedDataBundleXml = parser.setPrettyPrint(true).encodeResourceToString(eicrRRBundle);
+
+			context.getLogger().log("Anonymizer file name : "+uniqueFilename);
+			
+			if (StringUtils.isNullOrEmpty(processedDataBundleXml)) {
+				context.getLogger().log("Output not generated check logs ");
+			} else {
+				context.getLogger().log("Writing output file "+uniqueFilename);
+				this.writeFile(processedDataBundleXml, bucket, uniqueFilename, context);
+				context.getLogger().log("Output Generated  " + bucket + "/" + uniqueFilename);
+			}			
 			return "SUCCESS";
 		} catch (Exception e) {
 			context.getLogger().log(e.getMessage());
@@ -83,7 +103,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		}
 	}
 	
-	private String processEvent(String bucket, String key, Context context,Map<String, Object> metaDataMap) {
+	private Bundle processEvent(String bucket, String key, Context context,Map<String, Object> metaDataMap) throws Exception{
 		InputStream input = null;
 		File outputFile = null;
 		String keyFileName = "";
@@ -99,7 +119,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			if (!this.isConverterBucket(bucket)) {
 				context.getLogger().log(
 						"BUCKET_NAME env null; Env BUCKET_NAME should match the bucket name created for converter ");
-				return "Error: Different Bucket";
+				throw new RuntimeException ("Error: Different Bucket ");
 			}
 
 			S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucket, key));
@@ -156,22 +176,12 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			}			
 			
 			AnonymizerService anonymizerService = new AnonymizerService();
-			String processedDataBundleXml = anonymizerService.processBundleXml(responseXML,metaDataMap);
-			fileName = "OUTPUT-"+ key;
-			context.getLogger().log("Anonymizer file name : "+fileName);
-			
-			if (StringUtils.isNullOrEmpty(processedDataBundleXml)) {
-				context.getLogger().log("Output not generated check logs ");
-			} else {
-				context.getLogger().log("Writing output file "+fileName);
-				this.writeFile(processedDataBundleXml, bucket, fileName, context);
-				context.getLogger().log("Output Generated  " + bucket + "/" + fileName);
-			}
-			return "SUCCESS";
+			return anonymizerService.processBundleXml(responseXML,metaDataMap);
+
 		} catch (Exception e) {
 			context.getLogger().log(e.getMessage());
 			e.printStackTrace();
-			return "ERROR:" + e.getMessage();
+			throw new RuntimeException ("Error:  ",e);
 		} finally {
 			try {
 				input.close();
