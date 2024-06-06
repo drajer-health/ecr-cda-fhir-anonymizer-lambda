@@ -20,7 +20,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
+import org.hl7.fhir.r4.model.Address;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.Organization;
+import org.hl7.fhir.r4.model.Resource;
 public class FilterDataService {
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
@@ -134,6 +138,7 @@ public class FilterDataService {
 					Entry<String, JsonNode> entry = fields.next();
 					String key = entry.getKey();
 					JsonNode value = entry.getValue();
+					List<String> newPath = new ArrayList<>(pathToRemove);
 					if (isMatchingPath(key, pathToRemove)) {
 						if (pathToRemove.size() == 1) {
 							fieldsToRemove.add(key);
@@ -141,15 +146,15 @@ public class FilterDataService {
 							updatedObjectNode.setAll(maskedNode);
 						} else {
 							if (!removeAll) {
-								pathToRemove.remove(0);
+								newPath.remove(0);
 							}
 							if (value.isObject() || value.isArray()) {
-								process(value, pathToRemove, removeAll, maskedData);
+								process(value, newPath, removeAll, maskedData);
 							}
 						}
 					} else {
 						if (value.isObject() || value.isArray()) {
-							process(value, pathToRemove, removeAll, maskedData);
+							process(value, newPath, removeAll, maskedData);
 						}
 					}
 				}
@@ -347,4 +352,54 @@ public class FilterDataService {
 		}
 	}
 
+	public List<Map<String, Object>> filterOrganizationsByJurisdictions(List<Map<String, Object>> resourceList,
+			Map<String, Object> metaDataMap, String resourceType) {
+		List<Map<String, Object>> maskedElements = getMaskedElementsForResource(resourceType);
+		List<Map<String, Object>> filteredOrganizations = new ArrayList<>();
+
+		if (!maskedElements.isEmpty()) {
+			for (Map<String, Object> item : maskedElements) {
+				String targetElement = (String) item.get("targetElement");
+				if (targetElement != null) {
+
+					for (Map<String, Object> resourceMap : resourceList) {
+
+						Resource resource = (Resource) resourceMap.get("resource");
+						if (resource instanceof Organization) {
+							Organization organization = (Organization) resource;
+							List<Address> addresses = organization.getAddress();
+							boolean isValidOrganization = true;
+
+							for (Address address : addresses) {
+								if (!checkValidStateByJurisdictionsToRetain(item, address.getState())) {
+									isValidOrganization = false;
+									break;
+								}
+							}
+
+							if (isValidOrganization) {
+								filteredOrganizations.add(resourceMap);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return filteredOrganizations;
+	}
+
+	private boolean checkValidStateByJurisdictionsToRetain(Map<String, Object> maskData, String value) {
+		Map<String, Object> conditionRule = (Map<String, Object>) maskData.get("condition");
+		Map<String, Object> metaData = (Map<String, Object>) maskData.get("metaData");
+
+		if (conditionRule == null || conditionRule.isEmpty() || value == null) {
+			return false;
+		}
+
+		List<String> conditionValueList = getConditionValueList(conditionRule, metaData);
+		String lowercaseValue = value.toLowerCase();
+
+		return conditionValueList.isEmpty() || conditionValueList.stream().anyMatch(lowercaseValue::equalsIgnoreCase);
+	}	
 }
