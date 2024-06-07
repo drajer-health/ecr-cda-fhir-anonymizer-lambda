@@ -20,9 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.hl7.fhir.r4.model.Address;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Resource;
 public class FilterDataService {
@@ -367,11 +365,11 @@ public class FilterDataService {
 						Resource resource = (Resource) resourceMap.get("resource");
 						if (resource instanceof Organization) {
 							Organization organization = (Organization) resource;
-							List<Address> addresses = organization.getAddress();
+							List<Identifier> identifiers = organization.getIdentifier();
 							boolean isValidOrganization = true;
 
-							for (Address address : addresses) {
-								if (!checkValidStateByJurisdictionsToRetain(item, address.getState())) {
+							for (Identifier identifier : identifiers) {
+								if (!checkValidStateByJurisdictionsToRetain(item, identifier.getValue())) {
 									isValidOrganization = false;
 									break;
 								}

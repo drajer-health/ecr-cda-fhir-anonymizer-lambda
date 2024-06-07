@@ -445,7 +445,7 @@
 	],
 	"jurisdictionsOrganization":[
 			{
-			"targetElement": "state",
+			"targetElement": "value",
 			"action": "condition-mask",
 			"maskedData": {
 				"_state": {
