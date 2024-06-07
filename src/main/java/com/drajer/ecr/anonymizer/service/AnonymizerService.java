@@ -1,10 +1,16 @@
 package com.drajer.ecr.anonymizer.service;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
+import org.apache.commons.codec.Charsets;
+import org.apache.commons.io.IOUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
@@ -21,6 +27,7 @@ import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Reference;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
@@ -28,9 +35,9 @@ import ca.uhn.fhir.parser.IParser;
 
 public class AnonymizerService {
 
-	private final String RR_SUMMARY_SECTION_CODE = "88085-6";
+	private final String RR_COMP_SECTION_CODE = "88085-6";
 	private final String LOINC_URL = "http://loinc.org";
-	private final String Summary_code = "55112-7";
+	private final String RR_SUMMARY_SECTION_CODE = "55112-7";
 	private final String RR_CONDITION_OBS_CODE = "75323-6";
 	private final String REPORTABILITY_RESPONSE_SECTION_TITLE = "ReportabilityResponseInformationSection";
 	
@@ -73,17 +80,19 @@ public class AnonymizerService {
 
 	public Bundle addReportabilityResponseInformationSection(Bundle eicrBundle, Bundle rrBundle,
 			Map<String, Object> metaDataMap) {
-		FilterDataService filterDataService = new FilterDataService();
+
+		IParser jsonParser = FhirContext.forR4().newJsonParser();
+
 		Composition eicrComposition = (Composition) getResourceByType(eicrBundle, "Composition");
 
 		Composition rrComposition = (Composition) getResourceByType(rrBundle, "Composition");
 
 		if (eicrComposition != null && rrComposition != null
-				&& isCompositionValid(rrComposition, RR_SUMMARY_SECTION_CODE, LOINC_URL)) {
+				&& isCompositionValid(rrComposition, RR_COMP_SECTION_CODE, LOINC_URL)) {
 
 			List<SectionComponent> section = rrComposition.getSection();
 
-			SectionComponent rrSummarySection = findSectionByCode(section, Summary_code, LOINC_URL);
+			SectionComponent rrSummarySection = findSectionByCode(section, RR_SUMMARY_SECTION_CODE, LOINC_URL);
 
 			if (rrSummarySection != null) {
 
@@ -99,8 +108,8 @@ public class AnonymizerService {
 
 					List<Reference> rrRelevantReportableObsReferenceList = createReferenceList(resourceList);
 
-					addSection(eicrComposition, rrRelevantReportableObsReferenceList, RR_SUMMARY_SECTION_CODE,
-							LOINC_URL, REPORTABILITY_RESPONSE_SECTION_TITLE);
+					addSection(eicrComposition, rrRelevantReportableObsReferenceList, RR_COMP_SECTION_CODE, LOINC_URL,
+							REPORTABILITY_RESPONSE_SECTION_TITLE);
 
 					for (Map<String, Object> resourceMap : resourceList) {
 
@@ -118,23 +127,26 @@ public class AnonymizerService {
 
 						Resource resource = (Resource) resourceMap.get("resource");
 
+						List<Map<String, Object>> performerList = new ArrayList<>();
 						if (resource instanceof Observation) {
 							Observation observation = (Observation) resource;
 
-							processPerformerReferences(rrBundle, observation.getPerformer(), perfomerResourceList, null,
-									null, false);
+							processPerformerReferences(rrBundle, observation.getPerformer(), performerList, null, null,
+									false);
+							FilterDataService filterDataService = new FilterDataService();
+							List<Map<String, Object>> filterOrganizationsByJurisdictions = filterDataService
+									.filterOrganizationsByJurisdictions(performerList, metaDataMap,
+											"jurisdictionsOrganization");
 
+							List<Reference> validPerformer = createReferenceList(filterOrganizationsByJurisdictions);
+							observation.setPerformer(validPerformer);
+							perfomerResourceList.addAll(filterOrganizationsByJurisdictions);
 						}
 					}
 
 					addResourceMapToBundle(eicrBundle, resourceList);
 					addResourceMapToBundle(eicrBundle, subResourceList);
-					if (!perfomerResourceList.isEmpty()) {
-						List<Map<String, Object>> filterOrganizationsByJurisdictions = filterDataService
-								.filterOrganizationsByJurisdictions(perfomerResourceList, metaDataMap,
-										"jurisdictionsOrganization");
-						addResourceMapToBundle(eicrBundle, filterOrganizationsByJurisdictions);
-					}
+					addResourceMapToBundle(eicrBundle, perfomerResourceList);
 
 				}
 
@@ -347,4 +359,27 @@ public class AnonymizerService {
 		}
 	}
 
+	/**
+	 * method is used to convert xml to String
+	 *
+	 * @param inputStream
+	 * @return String
+	 * @throws IOException
+	 */
+
+	public String convertXmlToString(InputStream inputStream) throws IOException {
+		return IOUtils.toString(inputStream, Charsets.toCharset(StandardCharsets.UTF_8));
+	}
+
+	public static Map<String, Object> streamToMap(InputStream inputStream) throws IOException {
+
+		ObjectMapper objectMapper = new ObjectMapper();
+
+		return objectMapper.readValue(inputStream, Map.class);
+	}
+
+	private String createUniqueFilename(String prefix) {
+
+		return prefix + "_" + UUID.randomUUID().toString() + ".xml";
+	}
 }
