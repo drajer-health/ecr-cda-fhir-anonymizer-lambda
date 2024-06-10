@@ -28,3 +28,4 @@ target/
 .classpath
 .project
 dependency-reduced-pom.xml
+bin/
