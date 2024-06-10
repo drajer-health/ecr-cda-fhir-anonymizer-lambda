@@ -25,7 +25,7 @@ import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Reference;
-
+import org.hl7.fhir.r4.model.Identifier;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -153,7 +153,7 @@ public class AnonymizerService {
 			}
 
 		}
-
+		generateBundleGuid(eicrBundle);
 		return eicrBundle;
 
 	}
@@ -382,4 +382,15 @@ public class AnonymizerService {
 
 		return prefix + "_" + UUID.randomUUID().toString() + ".xml";
 	}
+	
+	public static String getGuid() {
+		return java.util.UUID.randomUUID().toString();
+	}
+
+	public void generateBundleGuid(Bundle eicrBundle) {
+		if (eicrBundle.hasIdentifier()) {
+			Identifier identifier = eicrBundle.getIdentifier();
+			identifier.setValue("urn:uuid:" + getGuid());
+		}
+	}	
 }
