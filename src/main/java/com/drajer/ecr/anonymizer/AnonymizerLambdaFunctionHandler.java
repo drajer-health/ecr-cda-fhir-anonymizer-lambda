@@ -9,10 +9,25 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.Period;
+import java.util.Collections;
+import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.DateType;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Quantity;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
+import org.hl7.fhir.r4.model.Enumerations.ResourceType;
 import org.springframework.util.ResourceUtils;
 
 import com.amazonaws.services.lambda.runtime.Context;
@@ -30,11 +45,13 @@ import com.drajer.ecr.anonymizer.service.AnonymizerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
 import net.sf.saxon.Transform;
 
 public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent, String> {
 	private AmazonS3 s3Client = AmazonS3ClientBuilder.standard().build();
+	private final String LOINC_URL = "http://loinc.org";
 	private String destPath = System.getProperty("java.io.tmpdir");
 	public static final int DEFAULT_BUFFER_SIZE = 8192;
 
@@ -68,7 +85,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			// get metdata map
 			Map<String, Object> metaDataMap = streamToMap(metadataInputStream);
 			// process RR
-			Bundle rrBundle = processEvent(bucket, key,context,metaDataMap);
+			Bundle rrBundle = processEvent(bucket, key,context,metaDataMap,false);
 			if (key.contains("RR")) {
 				key = key.replace("RR", "EICR");
 			}else {
@@ -76,7 +93,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			}
 			context.getLogger().log("EICR Key:" + key);
 			//process EICR
-			Bundle eicrBundle = processEvent(bucket, key,context,metaDataMap);
+			Bundle eicrBundle = processEvent(bucket, key,context,metaDataMap,true);
 			AnonymizerService anonymizerService = new AnonymizerService();
 			Bundle eicrRRBundle = anonymizerService.addReportabilityResponseInformationSection(eicrBundle, rrBundle, null);
 
@@ -103,7 +120,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		}
 	}
 	
-	private Bundle processEvent(String bucket, String key, Context context,Map<String, Object> metaDataMap) throws Exception{
+	private Bundle processEvent(String bucket, String key, Context context,Map<String, Object> metaDataMap,boolean addAgeObservationEntry) throws Exception{
 		InputStream input = null;
 		File outputFile = null;
 		String keyFileName = "";
@@ -173,7 +190,11 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 				context.getLogger().log("Writing FHIR output file "+fileName);
 				this.writeFile(responseXML, bucket, fileName, context);
 				context.getLogger().log("FHIR Output Generated  "+bucket+"/"+fileName);
-			}			
+			}
+			
+			if (addAgeObservationEntry) {
+				responseXML = addAgeObservationBundleEntry(responseXML);
+			}
 			
 			AnonymizerService anonymizerService = new AnonymizerService();
 			return anonymizerService.processBundleXml(responseXML,metaDataMap);
@@ -190,6 +211,91 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		}
 	}
 
+	public String addAgeObservationBundleEntry(String bundleXml) {
+		IParser xmlParser = FhirContext.forR4().newXmlParser();
+
+		try {
+			Bundle bundle = xmlParser.parseResource(Bundle.class, bundleXml);
+
+			BundleEntryComponent patientEntry = getBundleEntryByType(bundle, ResourceType.PATIENT.toCode());
+			Patient patient = patientEntry != null ? (Patient) patientEntry.getResource() : null;
+
+			if (patient != null && patient.hasBirthDateElement()) {
+				BundleEntryComponent observationEntry = new BundleEntryComponent();
+				observationEntry.setFullUrl("urn:uuid:" + getGuid());
+				Observation ageObservation = createAgeObservationResource(patient, patientEntry.getFullUrl());
+				observationEntry.setResource(ageObservation);
+				bundle.addEntry(observationEntry);
+			}
+
+			return xmlParser.setPrettyPrint(true).encodeResourceToString(bundle);
+
+		} catch (DataFormatException e) {
+			String errorMessage = "Failed to parse XML: " + e.getMessage();
+			throw new RuntimeException( errorMessage, e);
+		} catch (Exception e) {
+			String errorMessage = "An unexpected error occurred while processing the XML bundle: " + e.getMessage();
+			throw new RuntimeException( errorMessage, e);
+		}
+	}
+	
+	public BundleEntryComponent getBundleEntryByType(Bundle bundle, String resourceType) {
+
+		// Iterate through the entries in the bundle
+		for (BundleEntryComponent entry : bundle.getEntry()) {
+			Resource resource = entry.getResource();
+			if (resource.getResourceType().name().equals(resourceType)) {
+
+				return entry;
+			}
+		}
+
+		return null;
+	}
+	
+	public Observation createAgeObservationResource(Patient patient, String patientUrl) {
+		Observation observation = new Observation();
+		observation.setIdentifier(Collections.singletonList(generateIdentifier()));
+		observation.setStatus(Observation.ObservationStatus.FINAL);
+
+		Coding coding = new Coding();
+		coding.setSystem(LOINC_URL);
+		coding.setCode("29553-5");
+		coding.setDisplay("Age calculated");
+		observation.getCode().addCoding(coding);
+
+		observation.setEffective(new DateTimeType(new Date()));
+
+		Reference subjectReference = new Reference(patientUrl);
+		observation.setSubject(subjectReference);
+
+		Quantity ageQuantity = new Quantity();
+		ageQuantity.setCode("a");
+		ageQuantity.setValue(calculateAge(patient.getBirthDateElement()));
+		ageQuantity.setUnit("yr");
+		ageQuantity.setSystem("http://unitsofmeasure.org");
+
+		observation.setValue(ageQuantity);
+		return observation;
+	}
+
+	private Identifier generateIdentifier() {
+		Identifier identifier = new Identifier();
+		identifier.setSystem("urn:ietf:rfc:3986");
+		identifier.setValue("urn:uuid:" + getGuid());
+		return identifier;
+	}
+
+	public static String getGuid() {
+		return java.util.UUID.randomUUID().toString();
+	}
+	
+	private static int calculateAge(DateType birthDate) {
+		LocalDate birthLocalDate = birthDate.getValueAsCalendar().toInstant().atZone(java.time.ZoneId.systemDefault())
+				.toLocalDate();
+		return Period.between(birthLocalDate, LocalDate.now()).getYears();
+	}
+	
 	/**
 	 * Check if the S3 file processing is from the same S3 Converter bucket
 	 * 
@@ -282,4 +388,5 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		ObjectMapper objectMapper = new ObjectMapper();
 		return objectMapper.readValue(inputStream, Map.class);
 	}
+	
 }
