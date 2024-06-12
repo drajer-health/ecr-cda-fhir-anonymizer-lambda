@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.drajer.ecr.anonymizer</groupId>
 	<artifactId>ecr-cda-fhir-anonymizer-lambda</artifactId>
-	<version>1.0.5</version>
+	<version>1.0.6</version>
 	<packaging>jar</packaging>
     <properties>
         <fhir.version>5.4.0</fhir.version>
@@ -71,6 +71,10 @@
 					<groupId>com.fasterxml.jackson.dataformat</groupId>
 					<artifactId>jackson-dataformat-cbor</artifactId>
 				</exclusion>
+				<exclusion>
+				    <groupId>software.amazon.ion</groupId>
+				    <artifactId>ion-java</artifactId>
+				</exclusion>				
 			</exclusions>
 		</dependency>
 		<dependency>
