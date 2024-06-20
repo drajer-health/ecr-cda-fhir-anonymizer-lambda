@@ -1,0 +1,964 @@
+<Bundle xmlns="http://hl7.org/fhir">
+   <id value="eICR-bundle-d48e10"></id>
+   <meta>
+      <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/eicr-document-bundle"></profile>
+   </meta>
+   <identifier>
+      <system value="urn:ietf:rfc:3986"></system>
+      <value value="urn:uuid:2b0b6afc-3fa9-4f2f-a3e9-4366f64693ce"></value>
+   </identifier>
+   <type value="document"></type>
+   <timestamp value="2018-03-28T16:54:01.000-04:00"></timestamp>
+   <entry>
+      <fullUrl value="urn:uuid:bd4b6ba3-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Composition xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/eicr-composition"></profile>
+            </meta>
+            <language value="en-US"></language>
+            <text>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </text>
+            <extension url="http://hl7.org/fhir/StructureDefinition/composition-clinicaldocument-versionNumber">
+               <valueString value="1"></valueString>
+            </extension>
+            <identifier>
+               <system value="urn:ietf:rfc:3986"></system>
+               <value value="urn:uuid:bd4b6ba3-2f50-11ef-d45e-09173f13e4c5"></value>
+            </identifier>
+            <status value="final"></status>
+            <type>
+               <coding>
+                  <system value="http://loinc.org"></system>
+                  <code value="55751-2"></code>
+                  <display value="Public health Case report"></display>
+               </coding>
+            </type>
+            <subject>
+               <reference value="urn:uuid:bd4b7b87-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </subject>
+            <encounter>
+               <reference value="urn:uuid:bd4b7bc2-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </encounter>
+            <date value="2018-03-28T16:54:01.000-04:00"></date>
+            <author>
+               <reference value="urn:uuid:bd4b7baf-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </author>
+            <title value="Initial Public Health Case Report"></title>
+            <confidentiality value="N"></confidentiality>
+            <custodian>
+               <reference value="urn:uuid:bd4b7bb4-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </custodian>
+            <relatesTo>
+               <code value="transforms"></code>
+               <targetIdentifier>
+                  <system value="urn:ietf:rfc:3986"></system>
+                  <value value="urn:uuid:58fecd25-973e-4397-af68-1b7683758955"></value>
+               </targetIdentifier>
+            </relatesTo>
+            <section>
+               <title value="History of Present Illness"></title>
+               <code>
+                  <coding>
+                     <system value="http://loinc.org"></system>
+                     <code value="10164-2"></code>
+                     <display value="History of Present illness Narrative"></display>
+                  </coding>
+               </code>
+               <text>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="masked"></valueCode>
+                  </extension>
+               </text>
+            </section>
+            <section>
+               <title value="Medications Administered"></title>
+               <code>
+                  <coding>
+                     <system value="http://loinc.org"></system>
+                     <code value="29549-3"></code>
+                     <display value="Medication administered Narrative"></display>
+                  </coding>
+               </code>
+               <text>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="masked"></valueCode>
+                  </extension>
+               </text>
+            </section>
+            <section>
+               <title value="Problem List"></title>
+               <code>
+                  <coding>
+                     <system value="http://loinc.org"></system>
+                     <code value="11450-4"></code>
+                     <display value="Problem list - Reported"></display>
+                  </coding>
+               </code>
+               <text>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="masked"></valueCode>
+                  </extension>
+               </text>
+            </section>
+            <section>
+               <title value="Reason for visit"></title>
+               <code>
+                  <coding>
+                     <system value="http://loinc.org"></system>
+                     <code value="29299-5"></code>
+                     <display value="Reason for visit"></display>
+                  </coding>
+               </code>
+               <text>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="masked"></valueCode>
+                  </extension>
+               </text>
+            </section>
+            <section>
+               <title value="Results"></title>
+               <code>
+                  <coding>
+                     <system value="http://loinc.org"></system>
+                     <code value="30954-2"></code>
+                     <display value="Relevant diagnostic tests/laboratory data Narrative"></display>
+                  </coding>
+               </code>
+               <text>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="masked"></valueCode>
+                  </extension>
+               </text>
+            </section>
+            <section>
+               <title value="Social History"></title>
+               <code>
+                  <coding>
+                     <system value="http://loinc.org"></system>
+                     <code value="29762-2"></code>
+                     <display value="Social history Narrative"></display>
+                  </coding>
+               </code>
+               <text>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="masked"></valueCode>
+                  </extension>
+               </text>
+               <!--2.16.840.1.113883.10.20.22.4.38-->
+               <!--2.16.840.1.113883.10.20.22.4.38:2015-08-01-->
+               <entry>
+                  <reference value="urn:uuid:bd4c1b22-2f50-11ef-d45e-09173f13e4c5"></reference>
+               </entry>
+            </section>
+            <section>
+               <title value="CHIEF COMPLAINT"></title>
+               <code>
+                  <coding>
+                     <system value="http://loinc.org"></system>
+                     <code value="10154-3"></code>
+                     <display value="Chief complaint Narrative - Reported"></display>
+                  </coding>
+               </code>
+               <text>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="masked"></valueCode>
+                  </extension>
+               </text>
+            </section>
+            <section>
+               <title value="ReportabilityResponseInformationSection"></title>
+               <code>
+                  <coding>
+                     <system value="http://loinc.org"></system>
+                     <code value="88085-6"></code>
+                  </coding>
+               </code>
+               <text>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="masked"></valueCode>
+                  </extension>
+               </text>
+               <entry>
+                  <reference value="urn:uuid:ba883fc2-2f50-11ef-d45e-09173f13e4c5"></reference>
+               </entry>
+               <entry>
+                  <reference value="urn:uuid:ba883fee-2f50-11ef-d45e-09173f13e4c5"></reference>
+               </entry>
+            </section>
+         </Composition>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4b7b87-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Patient xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-patient"></profile>
+            </meta>
+            <text>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </text>
+            <extension url="http://hl7.org/fhir/us/core/StructureDefinition/us-core-race">
+               <extension url="ombCategory">
+                  <valueCoding>
+                     <system value="urn:oid:2.16.840.1.113883.6.238"></system>
+                     <code value="2028-9"></code>
+                     <display value="ASIAN"></display>
+                  </valueCoding>
+               </extension>
+               <extension url="text">
+                  <valueString value="ASIAN"></valueString>
+               </extension>
+            </extension>
+            <extension url="http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity">
+               <extension url="ombCategory">
+                  <valueCoding>
+                     <system value="urn:oid:2.16.840.1.113883.6.238"></system>
+                     <code value="2186-5"></code>
+                     <display value="Not Hispanic or Latino"></display>
+                  </valueCoding>
+               </extension>
+               <extension url="text">
+                  <valueString value="Not Hispanic or Latino"></valueString>
+               </extension>
+            </extension>
+            <extension url="http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex">
+               <valueCode value="M"></valueCode>
+            </extension>
+            <identifier>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </identifier>
+            <name>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </name>
+            <telecom>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </telecom>
+            <gender value="male"></gender>
+            <birthDate>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </birthDate>
+            <deceasedBoolean value="false"></deceasedBoolean>
+            <address>
+               <use value="home"></use>
+               <city value="St. Thomas"></city>
+               <state value="VI"></state>
+               <postalCode value="008"></postalCode>
+               <country value="USA"></country>
+            </address>
+            <communication>
+               <language>
+                  <coding>
+                     <system value="urn:ietf:bcp:47"></system>
+                     <code value="en"></code>
+                  </coding>
+               </language>
+               <preferred value="true"></preferred>
+            </communication>
+         </Patient>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4b7bc2-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Encounter xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/eicr-encounter"></profile>
+            </meta>
+            <text>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </text>
+            <!--Id from encompassingEncounter-->
+            <identifier>
+               <system value="urn:oid:2.16.840.1.113883.19"></system>
+               <value value="9937012"></value>
+            </identifier>
+            <status value="finished"></status>
+            <class>
+               <system value="http://terminology.hl7.org/CodeSystem/v3-ActCode"></system>
+               <code value="AMB"></code>
+            </class>
+            <type>
+               <coding>
+                  <system value="http://www.ama-assn.org/go/cpt"></system>
+                  <code value="99213"></code>
+                  <display value="Office or other outpatient visit for the evaluation and management of an established patient, which requires a medically appropriate history and/or examination and low level of medical decision making. When using time for code selection, 20-29 minutes of total time is spent on the date of the encounter."></display>
+               </coding>
+               <coding>
+                  <system value="http://terminology.hl7.org/CodeSystem/v3-ActCode"></system>
+                  <code value="AMB"></code>
+                  <display value="Ambulatory"></display>
+               </coding>
+            </type>
+            <type>
+               <coding>
+                  <system value="http://www.ama-assn.org/go/cpt"></system>
+                  <code value="99213"></code>
+                  <display value="Office or other outpatient visit for the evaluation and management of an established patient, which requires a medically appropriate history and/or examination and low level of medical decision making. When using time for code selection, 20-29 minutes of total time is spent on the date of the encounter."></display>
+               </coding>
+            </type>
+            <subject>
+               <reference value="urn:uuid:bd4b7b87-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </subject>
+            <participant>
+               <!--In participant-->
+               <type>
+                  <coding>
+                     <system value="http://terminology.hl7.org/CodeSystem/v3-ParticipationType"></system>
+                     <code value="ATND"></code>
+                  </coding>
+               </type>
+               <individual>
+                  <reference value="urn:uuid:bd4b7bcc-2f50-11ef-d45e-09173f13e4c5"></reference>
+               </individual>
+            </participant>
+            <period>
+               <start value="2016-01-05"></start>
+               <end value="2016-01-05"></end>
+            </period>
+            <diagnosis>
+               <extension url="http://hl7.org/fhir/us/ecr/StructureDefinition/eicr-trigger-code-flag-extension">
+                  <extension url="triggerCodeValueSet">
+                     <valueOid value="urn:oid:2.16.840.1.114222.4.11.7508"></valueOid>
+                  </extension>
+                  <extension url="triggerCodeValueSetVersion">
+                     <valueString value="20171013"></valueString>
+                  </extension>
+                  <extension url="triggerCode">
+                     <valueCoding>
+                        <system value="http://hl7.org/fhir/sid/icd-10-cm"></system>
+                        <code value="A37.0"></code>
+                        <display value="Whooping cough due to Bordetella pertussis"></display>
+                     </valueCoding>
+                  </extension>
+               </extension>
+               <condition>
+                  <!--2.16.840.1.113883.10.20.22.4.4-->
+                  <!--2.16.840.1.113883.10.20.22.4.4:2015-08-01-->
+                  <!--2.16.840.1.113883.10.20.15.2.3.3:2016-12-01-->
+                  <reference value="urn:uuid:bd4c1a95-2f50-11ef-d45e-09173f13e4c5"></reference>
+               </condition>
+            </diagnosis>
+            <location>
+               <location>
+                  <reference value="urn:uuid:bd4c1a1e-2f50-11ef-d45e-09173f13e4c5"></reference>
+               </location>
+            </location>
+            <serviceProvider>
+               <reference value="urn:uuid:bd4c1a2c-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </serviceProvider>
+         </Encounter>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4b7bcc-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <PractitionerRole xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-practitionerrole"></profile>
+            </meta>
+            <!--/ClinicalDocument[cda:id[@root="58fecd25-973e-4397-af68-1b7683758955"]]/componentOf/encompassingEncounter[cda:id[@root="2.16.840.1.113883.19"][@extension="9937012"]]/responsibleParty/assignedEntity[cda:id[@root="2.16.840.1.113883.4.6"][@extension="66666666666"]]-->
+            <identifier>
+               <system value="http://hl7.org/fhir/sid/us-npi"></system>
+               <value value="66666666666"></value>
+            </identifier>
+            <practitioner>
+               <reference value="urn:uuid:bd4c1a0c-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </practitioner>
+            <organization>
+               <reference value="urn:uuid:bd4c1a11-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </organization>
+            <telecom>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </telecom>
+         </PractitionerRole>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4c1a0c-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Practitioner xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/core/StructureDefinition/us-core-practitioner"></profile>
+            </meta>
+            <text>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </text>
+            <identifier>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </identifier>
+            <name>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </name>
+            <telecom>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </telecom>
+            <address>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </address>
+         </Practitioner>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4c1a11-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Organization xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-organization"></profile>
+            </meta>
+            <identifier>
+               <system value="http://hl7.org/fhir/sid/us-npi"></system>
+               <value value="tbdfacility#"></value>
+            </identifier>
+            <active value="true"></active>
+            <name value="TBDFacilityName"></name>
+            <telecom>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </telecom>
+            <address>
+               <use value="work"></use>
+               <line value="2 Facilityaddress Way"></line>
+               <city value="Kingshill"></city>
+               <district value="Saint Croix"></district>
+               <state value="VI"></state>
+               <postalCode value="00850"></postalCode>
+            </address>
+         </Organization>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4c1a1e-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Location xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-location"></profile>
+            </meta>
+            <identifier>
+               <system value="http://hl7.org/fhir/sid/us-npi"></system>
+               <value value="6564"></value>
+            </identifier>
+            <name value="TBD"></name>
+            <type>
+               <coding>
+                  <system value="http://terminology.hl7.org/CodeSystem/v3-RoleCode"></system>
+                  <code value="OF"></code>
+                  <display value="Outpatient Facility"></display>
+               </coding>
+            </type>
+            <telecom>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </telecom>
+            <address>
+               <use value="work"></use>
+               <line value="2 Facilityaddress Way"></line>
+               <city value="Kingshill"></city>
+               <district value="Saint Croix"></district>
+               <state value="VI"></state>
+               <postalCode value="00850"></postalCode>
+            </address>
+         </Location>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4c1a2c-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Organization xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-organization"></profile>
+            </meta>
+            <identifier>
+               <system value="http://hl7.org/fhir/sid/us-npi"></system>
+               <value value="6564"></value>
+            </identifier>
+            <active value="true"></active>
+            <name value="TBD"></name>
+            <telecom>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </telecom>
+            <address>
+               <use value="work"></use>
+               <line value="2 Facilityaddress Way"></line>
+               <city value="Kingshill"></city>
+               <state value="VI"></state>
+               <postalCode value="00850"></postalCode>
+            </address>
+         </Organization>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4b7baf-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Device xmlns="http://hl7.org/fhir">
+            <identifier>
+               <system value="urn:ietf:rfc:3986"></system>
+               <value value="urn:oid:2.16.840.1.113883.3.72.5.20"></value>
+            </identifier>
+            <!--cda:assignedAuthoringDevice-->
+            <modelNumber value="TBD Device"></modelNumber>
+            <version>
+               <value value="NI"></value>
+            </version>
+            <location>
+               <reference value="urn:uuid:bd4b7ba4-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </location>
+         </Device>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4b7ba4-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Location xmlns="http://hl7.org/fhir">
+            <telecom>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </telecom>
+            <address>
+               <use value="work"></use>
+               <line value="2 Facilityaddress Way"></line>
+               <city value="Kingshill"></city>
+               <district value="Saint Croix"></district>
+               <state value="VI"></state>
+               <postalCode value="00850"></postalCode>
+            </address>
+         </Location>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4b7bb4-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Organization xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-organization"></profile>
+            </meta>
+            <identifier>
+               <system value="http://hl7.org/fhir/sid/us-npi"></system>
+               <value value="tbdfacility#"></value>
+            </identifier>
+            <active value="true"></active>
+            <name value="TBD"></name>
+            <telecom>
+               <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                  <valueCode value="masked"></valueCode>
+               </extension>
+            </telecom>
+            <address>
+               <use value="work"></use>
+               <line value="2 Facilityaddress Way"></line>
+               <city value="Kingshill"></city>
+               <district value="Saint Croix"></district>
+               <state value="VI"></state>
+               <postalCode value="00850"></postalCode>
+            </address>
+         </Organization>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4c1a95-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Condition xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-condition"></profile>
+            </meta>
+            <identifier>
+               <system value="urn:ietf:rfc:3986"></system>
+               <value value="urn:uuid:dc6b87d3-2f1f-4a04-be4a-5bf327d49e3f"></value>
+            </identifier>
+            <clinicalStatus>
+               <coding>
+                  <system value="http://terminology.hl7.org/CodeSystem/condition-clinical"></system>
+                  <code value="active"></code>
+               </coding>
+            </clinicalStatus>
+            <category>
+               <coding>
+                  <system value="http://terminology.hl7.org/CodeSystem/condition-category"></system>
+                  <code value="encounter-diagnosis"></code>
+               </coding>
+            </category>
+            <code>
+               <coding>
+                  <system value="http://hl7.org/fhir/sid/icd-10-cm"></system>
+                  <code value="A37.0"></code>
+                  <display value="Whooping cough due to Bordetella pertussis"></display>
+               </coding>
+            </code>
+            <subject>
+               <reference value="urn:uuid:bd4b7b87-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </subject>
+            <onsetDateTime value="2016-01-04"></onsetDateTime>
+         </Condition>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:bd4c1b22-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Observation xmlns="http://hl7.org/fhir">
+            <identifier>
+               <system value="urn:ietf:rfc:3986"></system>
+               <value value="urn:uuid:28f72f28-705e-4c91-b2d2-3bee305d4426"></value>
+            </identifier>
+            <status value="final"></status>
+            <category>
+               <coding>
+                  <system value="http://terminology.hl7.org/CodeSystem/observation-category"></system>
+                  <code value="social-history"></code>
+                  <display value="Social History"></display>
+               </coding>
+            </category>
+            <code>
+               <coding>
+                  <system value="http://snomed.info/sct"></system>
+                  <code value="364703007"></code>
+                  <display value="Employment detail"></display>
+               </coding>
+               <coding>
+                  <system value="http://loinc.org"></system>
+                  <code value="11295-3"></code>
+                  <display value="Current employment - Reported"></display>
+               </coding>
+            </code>
+            <subject>
+               <reference value="urn:uuid:bd4b7b87-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </subject>
+            <!--Using document effective time as issued date-->
+            <issued value="2018-03-28T16:54:01.000-04:00"></issued>
+            <valueCodeableConcept>
+               <coding>
+                  <system value="http://snomed.info/sct"></system>
+                  <code value="73851001"></code>
+                  <display value="Plumber (general)"></display>
+               </coding>
+            </valueCodeableConcept>
+         </Observation>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:80ce8b91-94e6-4788-9145-505ff47e3377"></fullUrl>
+      <resource>
+         <Observation xmlns="http://hl7.org/fhir">
+            <identifier>
+               <system value="urn:ietf:rfc:3986"></system>
+               <value value="urn:uuid:d23fb4be-d888-4ec0-bc02-68158bbc4802"></value>
+            </identifier>
+            <status value="final"></status>
+            <code>
+               <coding>
+                  <system value="http://loinc.org"></system>
+                  <code value="29553-5"></code>
+                  <display value="Age calculated"></display>
+               </coding>
+            </code>
+            <subject>
+               <reference value="urn:uuid:bd4b7b87-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </subject>
+            <effectiveDateTime value="2024-06-20T18:02:10-04:00"></effectiveDateTime>
+            <valueQuantity>
+               <value value="30"></value>
+               <unit value="yr"></unit>
+               <system value="http://unitsofmeasure.org"></system>
+               <code value="a"></code>
+            </valueQuantity>
+         </Observation>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:ba883fc2-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <!--Relevant Reportable Condition Observation-->
+      <resource>
+         <Observation xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/rr-relevant-reportable-condition-observation"></profile>
+            </meta>
+            <identifier>
+               <system value="urn:ietf:rfc:3986"></system>
+               <value value="urn:uuid:d6ff1201-f245-4422-8561-f58e14705f7d"></value>
+            </identifier>
+            <status value="final"></status>
+            <code>
+               <coding>
+                  <system value="http://snomed.info/sct"></system>
+                  <code value="64572001"></code>
+                  <display value="Disease (disorder)"></display>
+               </coding>
+               <coding>
+                  <system value="http://loinc.org"></system>
+                  <code value="75323-6"></code>
+                  <display value="Condition"></display>
+               </coding>
+            </code>
+            <subject>
+               <reference value="urn:uuid:ba87a08f-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </subject>
+            <dataAbsentReason>
+               <coding>
+                  <system value="http://hl7.org/fhir/ValueSet/data-absent-reason"></system>
+                  <code value="not-applicable"></code>
+               </coding>
+            </dataAbsentReason>
+            <hasMember>
+               <!--2.16.840.1.113883.10.20.15.2.3.13:2017-04-01-->
+               <reference value="urn:uuid:ba883fc9-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </hasMember>
+         </Observation>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:ba883fee-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <!--Relevant Reportable Condition Observation-->
+      <resource>
+         <Observation xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/rr-relevant-reportable-condition-observation"></profile>
+            </meta>
+            <identifier>
+               <system value="urn:ietf:rfc:3986"></system>
+               <value value="urn:uuid:0292d88a-e633-4825-bd6a-ba9897890c71"></value>
+            </identifier>
+            <status value="final"></status>
+            <code>
+               <coding>
+                  <system value="http://snomed.info/sct"></system>
+                  <code value="64572001"></code>
+                  <display value="Disease (disorder)"></display>
+               </coding>
+               <coding>
+                  <system value="http://loinc.org"></system>
+                  <code value="75323-6"></code>
+                  <display value="Condition"></display>
+               </coding>
+            </code>
+            <subject>
+               <reference value="urn:uuid:ba87a08f-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </subject>
+            <dataAbsentReason>
+               <coding>
+                  <system value="http://hl7.org/fhir/ValueSet/data-absent-reason"></system>
+                  <code value="not-applicable"></code>
+               </coding>
+            </dataAbsentReason>
+            <hasMember>
+               <!--2.16.840.1.113883.10.20.15.2.3.13:2017-04-01-->
+               <reference value="urn:uuid:ba883ff5-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </hasMember>
+         </Observation>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:ba883fc9-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <!--Reportability Information Observation-->
+      <resource>
+         <Observation xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/rr-reportability-information-observation"></profile>
+            </meta>
+            <extension url="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-determination-of-reportability-extension">
+               <valueCodeableConcept>
+                  <coding>
+                     <system value="urn:oid:2.16.840.1.114222.4.5.274"></system>
+                     <code value="RRVS4"></code>
+                     <display value="No rule met"></display>
+                  </coding>
+               </valueCodeableConcept>
+            </extension>
+            <identifier>
+               <system value="urn:ietf:rfc:3986"></system>
+               <value value="urn:uuid:a4fe6cc3-4c02-488d-bcf9-ed23c37fca38"></value>
+            </identifier>
+            <status value="final"></status>
+            <code>
+               <coding>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="not-applicable"></valueCode>
+                  </extension>
+               </coding>
+            </code>
+            <subject>
+               <reference value="urn:uuid:ba87a08f-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </subject>
+            <component>
+               <code>
+                  <coding>
+                     <system value="urn:oid:2.16.840.1.114222.4.5.232"></system>
+                     <code value="RR4"></code>
+                     <display value="Timeframe to report (urgency)"></display>
+                  </coding>
+               </code>
+               <valueQuantity>
+                  <value>
+                     <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                        <valueCode value="unknown"></valueCode>
+                     </extension>
+                  </value>
+                  <unit>
+                     <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                        <valueCode value="unknown"></valueCode>
+                     </extension>
+                  </unit>
+               </valueQuantity>
+            </component>
+         </Observation>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:ba883ff5-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <!--Reportability Information Observation-->
+      <resource>
+         <Observation xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/rr-reportability-information-observation"></profile>
+            </meta>
+            <extension url="http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-determination-of-reportability-extension">
+               <valueCodeableConcept>
+                  <coding>
+                     <system value="urn:oid:2.16.840.1.114222.4.5.274"></system>
+                     <code value="RRVS4"></code>
+                     <display value="No rule met"></display>
+                  </coding>
+               </valueCodeableConcept>
+            </extension>
+            <identifier>
+               <system value="urn:ietf:rfc:3986"></system>
+               <value value="urn:uuid:9d9c99f6-7095-48cf-8f3f-7e4dd035c55f"></value>
+            </identifier>
+            <status value="final"></status>
+            <code>
+               <coding>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="not-applicable"></valueCode>
+                  </extension>
+               </coding>
+            </code>
+            <subject>
+               <reference value="urn:uuid:ba87a08f-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </subject>
+            <performer>
+               <reference value="urn:uuid:ba883ffa-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </performer>
+            <performer>
+               <reference value="urn:uuid:ba884007-2f50-11ef-d45e-09173f13e4c5"></reference>
+            </performer>
+            <component>
+               <code>
+                  <coding>
+                     <system value="urn:oid:2.16.840.1.114222.4.5.232"></system>
+                     <code value="RR4"></code>
+                     <display value="Timeframe to report (urgency)"></display>
+                  </coding>
+               </code>
+               <valueQuantity>
+                  <value>
+                     <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                        <valueCode value="unknown"></valueCode>
+                     </extension>
+                  </value>
+                  <unit>
+                     <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                        <valueCode value="unknown"></valueCode>
+                     </extension>
+                  </unit>
+               </valueQuantity>
+            </component>
+         </Observation>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:ba883ffa-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Organization xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/rr-rules-authoring-agency-organization"></profile>
+            </meta>
+            <!--participant[LOC]-->
+            <identifier>
+               <system value="http://hl7.org/fhir/sid/us-npi"></system>
+               <value value="vi"></value>
+            </identifier>
+            <active value="true"></active>
+            <type>
+               <coding>
+                  <system value="urn:oid:2.16.840.1.114222.4.5.232"></system>
+                  <code value="RR12"></code>
+                  <display value="Rules Authoring Agency"></display>
+               </coding>
+            </type>
+            <name value="Virgin Islands Department of Health (Test)"></name>
+            <!--Omitting null telecom-->
+            <address>
+               <use value="work"></use>
+               <postalCode>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="unknown"></valueCode>
+                  </extension>
+               </postalCode>
+            </address>
+         </Organization>
+      </resource>
+   </entry>
+   <entry>
+      <fullUrl value="urn:uuid:ba884007-2f50-11ef-d45e-09173f13e4c5"></fullUrl>
+      <resource>
+         <Organization xmlns="http://hl7.org/fhir">
+            <meta>
+               <profile value="http://hl7.org/fhir/us/ecr/StructureDefinition/rr-routing-entity-organization"></profile>
+            </meta>
+            <!--participant[LOC]-->
+            <identifier>
+               <system value="http://hl7.org/fhir/sid/us-npi"></system>
+               <value value="vi"></value>
+            </identifier>
+            <active value="true"></active>
+            <type>
+               <coding>
+                  <system value="urn:oid:2.16.840.1.114222.4.5.232"></system>
+                  <code value="RR7"></code>
+                  <display value="Routing Entity"></display>
+               </coding>
+            </type>
+            <name value="Virgin Islands Department of Health (Test)"></name>
+            <address>
+               <use value="work"></use>
+               <postalCode>
+                  <extension url="http://hl7.org/fhir/StructureDefinition/data-absent-reason">
+                     <valueCode value="unknown"></valueCode>
+                  </extension>
+               </postalCode>
+            </address>
+         </Organization>
+      </resource>
+   </entry>
+</Bundle>
