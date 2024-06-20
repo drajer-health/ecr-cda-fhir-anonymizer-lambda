@@ -359,6 +359,7 @@ public class FilterDataService {
 			for (Map<String, Object> item : maskedElements) {
 				String targetElement = (String) item.get("targetElement");
 				if (targetElement != null) {
+					item.put("metaData", metaDataMap);
 
 					for (Map<String, Object> resourceMap : resourceList) {
 
