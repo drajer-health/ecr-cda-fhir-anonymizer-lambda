@@ -92,10 +92,11 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 				key = key.replace("rr", "eicr");
 			}
 			context.getLogger().log("EICR Key:" + key);
+			context.getLogger().log("metaDataMap : " + metaDataMap.toString());
 			//process EICR
 			Bundle eicrBundle = processEvent(bucket, key,context,metaDataMap,true);
 			AnonymizerService anonymizerService = new AnonymizerService();
-			Bundle eicrRRBundle = anonymizerService.addReportabilityResponseInformationSection(eicrBundle, rrBundle, null);
+			Bundle eicrRRBundle = anonymizerService.addReportabilityResponseInformationSection(eicrBundle, rrBundle, metaDataMap);
 
 			String uniqueFilename = "OUTPUT-"+ key;
 			IParser parser = FhirContext.forR4().newXmlParser();

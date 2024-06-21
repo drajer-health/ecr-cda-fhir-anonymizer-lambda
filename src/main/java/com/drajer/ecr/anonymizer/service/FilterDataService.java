@@ -360,6 +360,7 @@ public class FilterDataService {
 				String targetElement = (String) item.get("targetElement");
 				if (targetElement != null) {
 
+					item.put("metaData", metaDataMap);
 					for (Map<String, Object> resourceMap : resourceList) {
 
 						Resource resource = (Resource) resourceMap.get("resource");

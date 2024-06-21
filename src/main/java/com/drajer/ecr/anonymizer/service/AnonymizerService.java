@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.RelatedPerson;
 import org.hl7.fhir.r4.model.Identifier;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,31 +48,37 @@ public class AnonymizerService {
 		FhirContext fhirContext = FhirContext.forR4();
 		IParser parser = fhirContext.newXmlParser();
 		IParser jsonParser = fhirContext.newJsonParser();
-		List<BundleEntryComponent> UpdatedResourcedList = new ArrayList<>();
+		List<Bundle.BundleEntryComponent> updatedResourceList = new ArrayList<>();
+
 		try {
 			Bundle bundle = parser.parseResource(Bundle.class, bundleXml);
+			List<Map<String, Object>> allCustodianOrganization = getAllCustodianOrganization(bundle);
+			List<Map<String, Object>> getallEmployerList = getallOdhObsEmployerList(bundle);
 
 			for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
 				IBaseResource resource = entry.getResource();
-				BundleEntryComponent bundleEntryComponent = new BundleEntryComponent();
-
 				String resourceType = fhirContext.getResourceType(resource);
-
 				String resourceJson = jsonParser.encodeResourceToString(resource);
-				JsonNode updatedResource = filterDataService.processJson(resourceJson, metaDataMap, resourceType);
+				JsonNode updatedResource;
 
-				bundleEntryComponent.setFullUrl(entry.getFullUrl());
+				updatedResource = filterCustomResource(entry, resourceJson, allCustodianOrganization,
+						getallEmployerList);
+
+				if (null == updatedResource) {
+					updatedResource = filterDataService.processJson(resourceJson, metaDataMap, resourceType);
+				}
 
 				Resource updatedResourceObj = (Resource) jsonParser.parseResource(updatedResource.toString());
 
-				bundleEntryComponent.setResource(updatedResourceObj);
-				UpdatedResourcedList.add(bundleEntryComponent);
+				Bundle.BundleEntryComponent updatedEntry = new Bundle.BundleEntryComponent()
+						.setFullUrl(entry.getFullUrl()).setResource(updatedResourceObj);
 
+				updatedResourceList.add(updatedEntry);
 			}
 
-			bundle.setEntry(UpdatedResourcedList);
-
+			bundle.setEntry(updatedResourceList);
 			return bundle;
+
 		} catch (DataFormatException e) {
 			throw new RuntimeException( "Failed to parse XML: " + e);
 		} catch (Exception e) {
@@ -187,11 +195,12 @@ public class AnonymizerService {
 		for (BundleEntryComponent entry : bundle.getEntry()) {
 			Resource resource = entry.getResource();
 
-			if (resource.getResourceType().equals(resourceType) && resource.hasId()
-					&& resource.getId().equals(resource)) {
+			if (resource.getResourceType().toString().equals(resourceType) && resource.hasIdElement()
+					&& resource.getIdElement().hasIdPart() && resource.getIdElement().getIdPart().equals(id)) {
 
 				return resource;
-			} else if (resource.hasId() && resource.getId().equals(id)) {
+			} else if (resource.hasIdElement() && resource.getIdElement().hasIdPart()
+					&& resource.getIdElement().getIdPart().equals(id)) {
 				return resource;
 			} else if (fullurl != null && entry.hasFullUrl()) {
 				String entryFullUrl = entry.getFullUrl();
@@ -393,4 +402,119 @@ public class AnonymizerService {
 			identifier.setValue("urn:uuid:" + getGuid());
 		}
 	}	
+	
+	
+	public JsonNode filterCustomResource(BundleEntryComponent entry, String resourceJson,
+			List<Map<String, Object>> allCustodianOrganization, List<Map<String, Object>> getAllEmployerList)
+			throws IOException {
+		FilterDataService filterDataService = new FilterDataService();
+
+		Resource resource = entry.getResource();
+		JsonNode updatedResource = null;
+
+		if (resource instanceof Organization) {
+			if (isResourceInList(entry, "Organization", allCustodianOrganization)) {
+				updatedResource = filterDataService.processJson(resourceJson, null, "custodianOrganization");
+			} else if (isResourceInList(entry, "Organization", getAllEmployerList)) {
+				updatedResource = filterDataService.processJson(resourceJson, null, "odh_employer");
+			}
+		} else if (resource instanceof RelatedPerson) {
+			if (isResourceInList(entry, "RelatedPerson", getAllEmployerList)) {
+				updatedResource = filterDataService.processJson(resourceJson, null, "odh_employer");
+			}
+		}
+
+		return updatedResource;
+	}
+	public boolean isResourceInList(BundleEntryComponent entryComponent, String resourceType,
+			List<Map<String, Object>> resourceList) {
+		Resource resource = entryComponent.getResource();
+
+		if (!resourceType.equals(resource.getResourceType().toString())) {
+			return false;
+		}
+
+		String resourceId = resource.hasIdElement()
+				&& resource.getIdElement().hasIdPart() ? resource.getIdElement().getIdPart():null;
+		String entryFullUrl = entryComponent.hasFullUrl() ? entryComponent.getFullUrl() : null;
+
+		for (Map<String, Object> resourceMap : resourceList) {
+			String id = (String) resourceMap.get("id");
+
+			String fullUrl = (String) resourceMap.get("fullurl");
+
+			if ((resourceId != null && resourceId.equals(id))
+					|| (entryFullUrl != null && fullUrl != null && entryFullUrl.equals(fullUrl))) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+	
+	public List<Map<String, Object>> getAllCustodianOrganization(Bundle eicrBundle) {
+		List<Map<String, Object>> custodainOrganizationList = new ArrayList<>();
+		Composition eicrComposition = (Composition) getResourceByType(eicrBundle, "Composition");
+
+		processPerformerReferences(eicrBundle, Collections.singletonList(eicrComposition.getCustodian()),
+				custodainOrganizationList, null, null, false);
+
+		return custodainOrganizationList;
+	}
+	
+	public List<Map<String, Object>> getallOdhObsEmployerList(Bundle bundle) {
+		List<Map<String, Object>> odhList = new ArrayList<>();
+
+		for (BundleEntryComponent entry : bundle.getEntry()) {
+			Resource resource = entry.getResource();
+
+			if (resource instanceof Observation) {
+
+				Observation observation = (Observation) resource;
+				if (isCodeExistValid(observation.getCode(), "11341-5", LOINC_URL)) {
+
+					List<Extension> extension = observation.getExtension();
+
+					for (Extension ext : extension) {
+
+						if (ext.hasUrl()
+								&& ext.getUrl().equalsIgnoreCase(
+										"http://hl7.org/fhir/us/odh/StructureDefinition/odh-Employer-extension")
+								&& ext.getValue() instanceof Reference)
+
+						{
+
+							processReferences(bundle, Collections.singletonList((Reference) ext.getValue()), odhList);
+						}
+
+					}
+				}
+			}
+		}
+
+		return odhList;
+	}
+	public void processReferences(Bundle bundle, List<Reference> references, List<Map<String, Object>> resourceList) {
+		for (Reference reference : references) {
+			if (reference.hasReferenceElement() && reference.getReferenceElement().hasIdPart()) {
+				String resourceType = reference.getReferenceElement().hasResourceType()
+						? reference.getReferenceElement().getResourceType()
+						: null;
+				String id = reference.getReferenceElement().getIdPart();
+
+				IIdType fullurl = reference.getReferenceElement();
+				Resource resource = getResourceByTypeAndId(bundle, resourceType, id, fullurl);
+
+				if (resource != null) {
+					Map<String, Object> resourceMap = new HashMap<>();
+					resourceMap.put("fullurl", fullurl.getValue());
+					resourceMap.put("id", id);
+					resourceMap.put("resource", resource);
+					resourceList.add(resourceMap);
+
+				}
+			}
+
+		}
+	}
 }
