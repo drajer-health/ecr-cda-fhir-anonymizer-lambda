@@ -44,7 +44,7 @@ import net.sf.saxon.Transform;
 
 public class AnonymizerLocal {
 
-	private String destPath = System.getProperty("java.io.tmpdir");
+	private String destPath = "D://ecr-anonymizer";
 	public static final int DEFAULT_BUFFER_SIZE = 8192;
 	private static final String LOINC_URL = "http://loinc.org";
 
@@ -108,7 +108,7 @@ public class AnonymizerLocal {
 			System.out.println("filePath ::::::" + key);
 //			S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucket, key));
 			input = new FileInputStream(key); // s3Object.getObjectContent();
-			outputFile = new File("/tmp/" + key);
+			outputFile = new File("C://tmp//" + key);
 
 			outputFile.setWritable(true);
 

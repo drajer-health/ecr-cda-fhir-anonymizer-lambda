@@ -232,8 +232,45 @@
 					}
 				]
 			}
+		},
+		{
+			"targetElement": "address",
+			"action": "mask",
+			"maskedData": {
+				"address": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
 		}
 	],
+
+"custodianOrganization": [
+		{
+			"targetElement": "telecom",
+			"action": "mask",
+			"maskedData": {
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		}
+	],	
+	
+	
 	"Immunization": [
 		{
 			"targetElement": "performer.display",
@@ -463,6 +500,26 @@
 			},
 			"removeAll": true
 		}
+	],
+	"odh_employer":[
+	
+	{
+			"targetElement": "name",
+			"action": "mask",
+			"maskedData": {
+				"_name": 
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+			}
+		}
+
+	
 	]
 	
 	
