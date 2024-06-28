@@ -163,7 +163,7 @@
 			"targetElement": "contact.name.given",
 			"action": "mask",
 			"maskedData": {
-				"_given":[ {
+				"given":[ {
 					"extension": [
 						{
 							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
