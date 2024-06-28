@@ -564,16 +564,7 @@
 			"targetElement": "name.text",
 			"action": "mask",
 			"maskedData": {
-				"_text": [
-					{
-						"extension": [
-							{
-								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-								"valueCode": "masked"
-							}
-						]
-					}
-				]
+				
 			}
 		},
 		{
