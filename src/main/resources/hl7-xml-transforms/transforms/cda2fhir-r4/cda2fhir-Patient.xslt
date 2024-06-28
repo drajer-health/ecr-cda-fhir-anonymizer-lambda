@@ -44,7 +44,12 @@
 
             <xsl:call-template name="generate-text-patient" />
             <xsl:call-template name="add-race-codes" />
-            <xsl:call-template name="add-ethnicity-codes" />
+            <xsl:choose>
+                <xsl:when test="cda:patientRole/cda:patient/cda:ethnicGroupCode/@nullFlavor" />
+                <xsl:otherwise>
+                    <xsl:call-template name="add-ethnicity-codes" />
+                </xsl:otherwise>
+            </xsl:choose>
 
             <xsl:call-template name="add-birthtime-extension" />
             <xsl:call-template name="add-birth-sex-extension" />
@@ -342,7 +347,7 @@
         <xsl:if test="cda:patientRole/cda:patient/cda:ethnicGroupCode or cda:patientRole/cda:patient/sdtc:ethnicGroupCode">
             <extension url="http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity">
                 <xsl:for-each select="cda:patientRole/cda:patient/cda:ethnicGroupCode">
-                    <!--<xsl:variable name="code">
+                    <xsl:variable name="code">
                         <xsl:choose>
                             <xsl:when test="@nullFlavor">
                                 <xsl:value-of select="@nullFlavor" />
@@ -361,33 +366,25 @@
                                 <xsl:text>urn:oid:2.16.840.1.113883.6.238</xsl:text>
                             </xsl:otherwise>
                         </xsl:choose>
-                    </xsl:variable>-->
+                    </xsl:variable>
                     <extension url="ombCategory">
                         <valueCoding>
+                            <system value="{$codeSystemUri}" />
                             <xsl:choose>
-                                <xsl:when test="@nullFlavor">
-                                    <xsl:apply-templates select="@nullFlavor" mode="data-absent-reason-extension" />
-                                </xsl:when>
-                                <xsl:otherwise>
-                                    <system value="urn:oid:2.16.840.1.113883.6.238" />
-                                    <code value="@code" />
-                                </xsl:otherwise>
-                            </xsl:choose>
-<!--                            <system value="{$codeSystemUri}" />-->
-                            <!--<xsl:choose>
                                 <xsl:when test="$code = 'NI'">
                                     <code value="UNK" />
                                 </xsl:when>
-                                <xsl:otherwise>-->
-<!--                                    <code value="{$code}" />-->
-                                <!--</xsl:otherwise>
-                            </xsl:choose>-->
+                                <xsl:otherwise>
+                                    <code value="{$code}" />
+                                </xsl:otherwise>
+                            </xsl:choose>
                             <xsl:if test="@displayName">
                                 <display>
                                     <xsl:attribute name="value">
                                         <xsl:apply-templates select="@displayName" />
                                     </xsl:attribute>
                                 </display>
+                                <!--                                <display value="{@displayName}" />-->
                             </xsl:if>
                         </valueCoding>
                     </extension>
@@ -406,6 +403,7 @@
                                                 <xsl:apply-templates select="@displayName" />
                                             </xsl:attribute>
                                         </display>
+                                        <!--                                        <display value="{@displayName}" />-->
                                     </xsl:if>
                                 </valueCoding>
                             </extension>
@@ -482,21 +480,12 @@
         </xsl:for-each>
     </xsl:template>
 
-    <!-- birthplace -->
+    <!-- birthplace: TODO - add name as text -->
     <xsl:template name="add-birthplace-extension">
-        <xsl:variable name="vName">
-            <xsl:for-each select="cda:patientRole/cda:patient/cda:birthplace/cda:place/cda:name | cda:patientRole/cda:patient/cda:birthplace/cda:place/cda:name/cda:*">
-                <xsl:variable name="vTextNamePart">
-                    <xsl:value-of select="."/>
-                </xsl:variable>
-                <xsl:value-of select="concat($vTextNamePart, ' ')"/>
-            </xsl:for-each>
-        </xsl:variable>
         <xsl:for-each select="cda:patientRole/cda:patient/cda:birthplace/cda:place">
             <extension url="http://hl7.org/fhir/StructureDefinition/patient-birthPlace">
                 <xsl:apply-templates select="cda:addr">
                     <xsl:with-param name="pElementName" select="'valueAddress'" />
-                    <xsl:with-param name="pExtraText" select="$vName"/>
                 </xsl:apply-templates>
             </extension>
         </xsl:for-each>
