@@ -251,7 +251,7 @@
 			"targetElement": "name",
 			"action": "mask",
 			"maskedData": {
-				"name": [
+				"name": 
 					{
 						"extension": [
 							{
@@ -260,7 +260,6 @@
 							}
 						]
 					}
-				]
 			}
 		}
 	],
