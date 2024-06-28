@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Resource;
+
 public class FilterDataService {
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
@@ -36,7 +37,7 @@ public class FilterDataService {
 	 *         elements.
 	 * @throws IOException If there is an error reading the JSON string.
 	 */
-	public JsonNode processJson(String json, Map<String, Object> metaDataMap,String resourceType) throws IOException {
+	public JsonNode processJson(String json, Map<String, Object> metaDataMap, String resourceType) throws IOException {
 		JsonNode root = objectMapper.readTree(json);
 
 		List<Map<String, Object>> maskedElements = getMaskedElementsForResource(resourceType);
@@ -46,11 +47,12 @@ public class FilterDataService {
 				String targetElement = (String) item.get("targetElement");
 
 				boolean removeAll = Optional.ofNullable((Boolean) item.get("removeAll")).orElse(false);
+				boolean referenceSpecific = Optional.ofNullable((Boolean) item.get("referenceSpecific")).orElse(false);
 
 				if (targetElement != null) {
 					List<String> paths = new ArrayList(Arrays.asList(targetElement.split("\\.")));
 					item.put("metaData", metaDataMap);
-					process(root, paths, removeAll, item);
+					process(root, paths, removeAll, item, referenceSpecific);
 				}
 			}
 		}
@@ -62,21 +64,22 @@ public class FilterDataService {
 	/**
 	 * Processes a JSON node recursively based on the provided path.
 	 *
-	 * @param node           The JSON node to process.
-	 * @param path           The path to match against.
-	 * @param removeAll      Flag indicating whether to remove all matched elements.
+	 * @param node       The JSON node to process.
+	 * @param path       The path to match against.
+	 * @param removeAll  Flag indicating whether to remove all matched elements.
 	 * @param maskedData
 	 */
-	public void process(JsonNode node, List<String> path, boolean removeAll, Map<String, Object> maskedData) {
+	public void process(JsonNode node, List<String> path, boolean removeAll, Map<String, Object> maskedData,
+			boolean referenceSpecific) {
 		if (node.isObject()) {
-			processObject((ObjectNode) node, path, removeAll, maskedData);
+			processObject((ObjectNode) node, path, removeAll, maskedData, referenceSpecific);
 		} else if (node.isArray()) {
-			processArray((ArrayNode) node, path, removeAll, maskedData);
+			processArray((ArrayNode) node, path, removeAll, maskedData, referenceSpecific);
 		}
 	}
 
 	private void processObject(ObjectNode objectNode, List<String> path, boolean removeAll,
-			Map<String, Object> maskedData) {
+			Map<String, Object> maskedData, boolean referenceSpecific) {
 		ObjectNode updatedObjectNode = JsonNodeFactory.instance.objectNode();
 		List<String> fieldsToRemove = new ArrayList<>();
 
@@ -86,19 +89,32 @@ public class FilterDataService {
 			String key = entry.getKey();
 			JsonNode value = entry.getValue();
 
+			if (referenceSpecific && value.isObject()) {
+				ObjectNode maskedNode = referenceDisplayMasking(maskedData, value, key);
+				ObjectNode maskedobj = JsonNodeFactory.instance.objectNode();
+				if (maskedNode != null && !maskedNode.isEmpty()) {
+					fieldsToRemove.add(key);
+					maskedobj.set(key, (JsonNode) maskedNode);
+
+					updatedObjectNode.setAll(maskedobj);
+				}
+
+			}
+
 			if (isMatchingPath(key, path)) {
 				List<String> newPath = new ArrayList<>(path);
 				newPath.remove(0);
 
 				if (newPath.isEmpty() || removeAll) {
+
 					fieldsToRemove.add(key);
 					ObjectNode maskedNode = createMaskedNode(maskedData, key, value);
 					updatedObjectNode.setAll(maskedNode);
 				} else {
-					process(value, newPath, removeAll, maskedData);
+					process(value, newPath, removeAll, maskedData, referenceSpecific);
 				}
 			} else {
-				process(value, path, removeAll, maskedData);
+				process(value, path, removeAll, maskedData, referenceSpecific);
 			}
 		}
 
@@ -112,24 +128,36 @@ public class FilterDataService {
 	 * Optimized method for processing an array of JSON elements, removing specified
 	 * paths from all occurrences, and masking elements as required.
 	 *
-	 * @param arrayNode     The {@link ArrayNode} containing JSON elements to
-	 *                      process.
-	 * @param pathToRemove  A {@link List} of {@link String}s representing the paths
-	 *                      to be removed from JSON objects.
-	 * @param maskedData A {@link Map} containing the elements to be masked, with
-	 *                      keys representing the paths and values representing the
-	 *                      masking values.
-	 * @param removeAll     A boolean flag indicating whether all occurrences of the
-	 *                      specified path should be removed.
+	 * @param arrayNode    The {@link ArrayNode} containing JSON elements to
+	 *                     process.
+	 * @param pathToRemove A {@link List} of {@link String}s representing the paths
+	 *                     to be removed from JSON objects.
+	 * @param maskedData   A {@link Map} containing the elements to be masked, with
+	 *                     keys representing the paths and values representing the
+	 *                     masking values.
+	 * @param removeAll    A boolean flag indicating whether all occurrences of the
+	 *                     specified path should be removed.
 	 */
 	private void processArray(ArrayNode arrayNode, List<String> pathToRemove, boolean removeAll,
-			Map<String, Object> maskedData) {
+			Map<String, Object> maskedData, boolean referenceSpecific) {
 		ObjectNode updatedObjectNode = JsonNodeFactory.instance.objectNode();
+
 		Iterator<JsonNode> elements = arrayNode.elements();
 		while (elements.hasNext()) {
+			List<String> referencePath = new ArrayList<>();
 			JsonNode element = elements.next();
 			if (element.isObject()) {
 				ObjectNode objNode = (ObjectNode) element;
+
+				if (referenceSpecific) {
+					boolean isreferenceDisplayPresent = isreferenceDisplayPresent(element);
+					if (isreferenceDisplayPresent) {
+						referencePath.add("display");
+
+					}
+
+				}
+
 				Iterator<Entry<String, JsonNode>> fields = objNode.fields();
 				List<String> fieldsToRemove = new ArrayList<>();
 				while (fields.hasNext()) {
@@ -137,7 +165,18 @@ public class FilterDataService {
 					String key = entry.getKey();
 					JsonNode value = entry.getValue();
 					List<String> newPath = new ArrayList<>(pathToRemove);
-					if (isMatchingPath(key, pathToRemove)) {
+
+					if (!referencePath.isEmpty()) {
+
+						if (isMatchingPath(key, referencePath)) {
+							fieldsToRemove.add(key);
+							ObjectNode maskedNode = createMaskedNode(maskedData, key, value);
+							updatedObjectNode.setAll(maskedNode);
+						}
+
+					}
+
+					else if (isMatchingPath(key, pathToRemove)) {
 						if (pathToRemove.size() == 1) {
 							fieldsToRemove.add(key);
 							ObjectNode maskedNode = createMaskedNode(maskedData, key, value);
@@ -147,12 +186,25 @@ public class FilterDataService {
 								newPath.remove(0);
 							}
 							if (value.isObject() || value.isArray()) {
-								process(value, newPath, removeAll, maskedData);
+								process(value, newPath, removeAll, maskedData, referenceSpecific);
 							}
 						}
 					} else {
 						if (value.isObject() || value.isArray()) {
-							process(value, newPath, removeAll, maskedData);
+
+							if (referenceSpecific && value.isObject()) {
+								ObjectNode maskedNode = referenceDisplayMasking(maskedData, value, key);
+								ObjectNode maskedobj = JsonNodeFactory.instance.objectNode();
+								if (maskedNode != null && !maskedNode.isEmpty()) {
+									fieldsToRemove.add(key);
+									maskedobj.set(key, (JsonNode) maskedNode);
+
+									updatedObjectNode.setAll(maskedobj);
+								}
+
+							} else {
+								process(value, newPath, removeAll, maskedData, referenceSpecific);
+							}
 						}
 					}
 				}
@@ -181,8 +233,10 @@ public class FilterDataService {
 			return applyMask(maskedNode, maskedData, key);
 		case "transform":
 			return applyTransformation(maskedNode, maskedData, key, value);
+
 		case "condition-mask":
-			return applyConditionMask(maskedNode, maskedData, key, value);			
+			return applyConditionMaskByType(maskedNode, maskedData, key, value);
+
 		default:
 			return maskedNode;
 		}
@@ -248,7 +302,8 @@ public class FilterDataService {
 
 		maskedNode.set(key, value);
 		return maskedNode;
-	}	
+	}
+
 	/**
 	 * Transforms the field based on the provided transformation rules.
 	 *
@@ -301,13 +356,14 @@ public class FilterDataService {
 
 		if (conditionValueObj instanceof String) {
 
-			conditionValueList.addAll(new ArrayList(Arrays.asList(((String)conditionValueObj).split(","))));
+			conditionValueList.addAll(new ArrayList(Arrays.asList(((String) conditionValueObj).split(","))));
 
 		} else if (conditionValueObj instanceof List) {
 			conditionValueList.addAll((List<String>) conditionValueObj);
 		}
 		return conditionValueList;
-	}	
+	}
+
 	/**
 	 * Retrieves the configuration list for the given key.
 	 *
@@ -318,10 +374,10 @@ public class FilterDataService {
 	@SuppressWarnings("unchecked")
 	private List<Map<String, Object>> getConfigList(String key) {
 		String ecrAnonymizerConfigFile = readPropertiesFile().getProperty("ecr.anonymizer.config.file");
-		Map<String, List<Map<String, Object>>> ecrDataMaskingConfigList = FileUtils.readFileContents(ecrAnonymizerConfigFile,
-				new TypeReference<Map<String, List<Map<String, Object>>>>() {
+		Map<String, List<Map<String, Object>>> ecrDataMaskingConfigList = FileUtils
+				.readFileContents(ecrAnonymizerConfigFile, new TypeReference<Map<String, List<Map<String, Object>>>>() {
 				});
-		
+
 		Object value = ecrDataMaskingConfigList.get(key);
 		if (value != null) {
 			if (value instanceof List) {
@@ -334,10 +390,11 @@ public class FilterDataService {
 		}
 		return null;
 	}
-	
+
 	private boolean isValidCondition(Map<String, Object> conditionRule, JsonNode value) {
 		return conditionRule != null && !conditionRule.isEmpty() && value != null && value.isTextual();
-	}	
+	}
+
 	private Properties readPropertiesFile() {
 		ClassLoader classLoader = Utils.class.getClassLoader();
 		try {
@@ -400,5 +457,137 @@ public class FilterDataService {
 		String lowercaseValue = value.toLowerCase();
 
 		return conditionValueList.isEmpty() || conditionValueList.stream().anyMatch(lowercaseValue::equalsIgnoreCase);
-	}	
+	}
+
+	public ObjectNode referenceDisplayMasking(Map<String, Object> maskData, JsonNode value, String key) {
+
+		ObjectNode maskedNode = JsonNodeFactory.instance.objectNode();
+
+		JsonNode referenceNode = value.get("reference");
+		JsonNode displayNode = value.get("display");
+
+		if (referenceNode != null && displayNode != null) {
+			ObjectNode maskedObj = JsonNodeFactory.instance.objectNode();
+			maskedNode.set("reference", referenceNode);
+			maskedNode.setAll(applyMask(maskedObj, maskData, "display"));
+
+			// maskedNode.set(key, (JsonNode) maskedReferenceObj);
+			return maskedNode;
+
+		}
+
+		return maskedNode;
+	}
+
+	public boolean isreferenceDisplayPresent(JsonNode value) {
+
+		JsonNode referenceNode = value.get("reference");
+		JsonNode displayNode = value.get("display");
+
+		if (referenceNode != null && displayNode != null) {
+			return true;
+
+		}
+
+		return false;
+	}
+	
+	public ObjectNode applyConditionMaskByType(ObjectNode maskedNode, Map<String, Object> maskData, String key,
+			JsonNode value) {
+		Map<String, Object> conditionRule = (Map<String, Object>) maskData.get("condition");
+
+		if (conditionRule == null || conditionRule.isEmpty() || value == null) {
+			maskedNode.set(key, value);
+			return maskedNode;
+		}
+
+		String type = (String) conditionRule.getOrDefault("type","");
+		List<String> conditionValueList = (List<String>) conditionRule.getOrDefault("values", Collections.emptyList());
+
+		switch (type.toLowerCase()) {
+		case "key-match":
+			return applyKeyMatchCondition(maskedNode, conditionValueList, maskData, key, value);
+		case "value-match":
+			return applyValueMatchCondition(maskedNode, conditionRule, maskData, key, value);
+		default:
+			maskedNode.set(key, value);
+			return maskedNode;
+		}
+	}
+
+	private ObjectNode applyKeyMatchCondition(ObjectNode maskedNode, List<String> conditionValueList,
+			Map<String, Object> maskData, String key, JsonNode value) {
+		if (value.isArray()) {
+			ArrayNode arrayNode = (ArrayNode) value;
+			for (JsonNode jsonNode : arrayNode) {
+				if (jsonNode.isObject()) {
+					ObjectNode objNode = (ObjectNode) jsonNode;
+					Iterator<Entry<String, JsonNode>> fields = objNode.fields();
+					while (fields.hasNext()) {
+						Entry<String, JsonNode> entry = fields.next();
+						String objKey = entry.getKey();
+						if (objKey != null && conditionValueList.contains(objKey)) {
+							return applyMask(maskedNode, maskData, key);
+						}
+					}
+				}
+			}
+		} else if (value.isObject()) {
+			ObjectNode objNode = (ObjectNode) value;
+			Iterator<Entry<String, JsonNode>> fields = objNode.fields();
+			while (fields.hasNext()) {
+				Entry<String, JsonNode> entry = fields.next();
+				String objKey = entry.getKey();
+				if (objKey != null && conditionValueList.contains(objKey)) {
+					return applyMask(maskedNode, maskData, key);
+				}
+			}
+		}
+
+		maskedNode.set(key, value);
+		return maskedNode;
+	}
+
+	private ObjectNode applyValueMatchCondition(ObjectNode maskedNode, Map<String, Object> conditionRule,
+			Map<String, Object> maskData, String key, JsonNode value) {
+		List<String> conditionValueList = (List<String>) conditionRule.getOrDefault("values", Collections.emptyList());
+		String conditionkey = (String) conditionRule.getOrDefault("key", "");
+
+		if (value.isArray()) {
+			ArrayNode arrayNode = (ArrayNode) value;
+			for (JsonNode jsonNode : arrayNode) {
+				if (jsonNode.isObject()) {
+					ObjectNode objNode = (ObjectNode) jsonNode;
+					Iterator<Entry<String, JsonNode>> fields = objNode.fields();
+					while (fields.hasNext()) {
+						Entry<String, JsonNode> entry = fields.next();
+						String objKey = entry.getKey();
+						JsonNode objValue = entry.getValue();
+						if (objKey != null && conditionkey.equals(objKey) && objValue.isTextual()
+								&& conditionValueList.contains(objValue)) {
+
+							return applyMask(maskedNode, maskData, key);
+						}
+					}
+				}
+			}
+		} else if (value.isObject()) {
+			ObjectNode objNode = (ObjectNode) value;
+			Iterator<Entry<String, JsonNode>> fields = objNode.fields();
+			while (fields.hasNext()) {
+				Entry<String, JsonNode> entry = fields.next();
+				String objKey = entry.getKey();
+				JsonNode objValue = entry.getValue();
+				if (objKey != null && conditionkey.equals(objKey) && objValue.isTextual()
+						&& conditionValueList.contains(objValue)) {
+					return applyMask(maskedNode, maskData, key);
+				}
+			}
+		}
+
+		maskedNode.set(key, value);
+		return maskedNode;
+	}
+
+
 }

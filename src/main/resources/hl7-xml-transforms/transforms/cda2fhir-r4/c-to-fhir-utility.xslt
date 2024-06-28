@@ -8,7 +8,11 @@
     <xsl:param name="template-subprofile-mapping-file">../template-subprofile-mapping.xml</xsl:param>
     <xsl:param name="lab-obs-status-mapping-file">../lab-obs-status-mapping.xml</xsl:param>
     <xsl:param name="lab-status-mapping-file">../lab-status-mapping.xml</xsl:param>
+    <xsl:param name="result-status-mapping-file">../result-status-mapping.xml</xsl:param>
+    <xsl:param name="medication-status-mapping-file">../medication-status-mapping.xml</xsl:param>
+    <xsl:param name="immunization-status-mapping-file">../immunization-status-mapping.xml</xsl:param>
     <xsl:param name="code-display-mapping-file">../code-display-mapping.xml</xsl:param>
+    <xsl:param name="vital-sign-codes-file">../vital-sign-codes.xml</xsl:param>
     <!-- File listing the templates that are suppressed because they are not full resources in FHIR (extensions, components, data elements, etc.) -->
     <xsl:param name="templates-to-suppress-file">../templates-to-suppress.xml</xsl:param>
 
@@ -16,8 +20,12 @@
     <xsl:variable name="participant-profile-mapping" select="document($participant-profile-mapping-file)/mapping" />
     <xsl:variable name="template-subprofile-mapping" select="document($template-subprofile-mapping-file)/mapping" />
     <xsl:variable name="lab-status-mapping" select="document($lab-status-mapping-file)/mapping" />
+    <xsl:variable name="result-status-mapping" select="document($result-status-mapping-file)/mapping" />
+    <xsl:variable name="medication-status-mapping" select="document($medication-status-mapping-file)/mapping" />
+    <xsl:variable name="immunization-status-mapping" select="document($immunization-status-mapping-file)/mapping" />
     <xsl:variable name="lab-obs-status-mapping" select="document($lab-obs-status-mapping-file)/mapping" />
     <xsl:variable name="code-display-mapping" select="document($code-display-mapping-file)/mapping" />
+    <xsl:variable name="vital-sign-codes" select="document($vital-sign-codes-file)/mapping" />
     <!-- Variable with the list of all the templates that are suppressed because they are not full resources in FHIR (extensions, components, data elements, etc.) -->
     <xsl:variable name="templates-to-suppress" select="document($templates-to-suppress-file)/templatesToSuppress" />
 
@@ -519,85 +527,6 @@
         </xsl:choose>
     </xsl:template>
 
-
-    <xsl:template match="cda:observation/cda:referenceRange">
-        <!-- Rule: must have at least a low or a high or a text -->
-        <referenceRange>
-            <xsl:for-each select="cda:observationRange">
-                <xsl:for-each select="cda:value">
-                    <xsl:choose>
-                        <xsl:when test="@nullFlavor">
-                            <xsl:apply-templates select="@nullFlavor" mode="data-absent-reason-extension" />
-                        </xsl:when>
-                        <xsl:when test="@xsi:type = 'IVL_PQ'">
-                            <xsl:apply-templates select="cda:low" mode="range" />
-                            <xsl:apply-templates select="cda:high" mode="range" />
-                        </xsl:when>
-                        <xsl:otherwise>
-                            <xsl:message> Unsupported observation reference range type: <xsl:value-of select="@xsi:type" />
-                            </xsl:message>
-                        </xsl:otherwise>
-                    </xsl:choose>
-                </xsl:for-each>
-                <!-- Put whatever is in text into a variable -->
-                <xsl:variable name="vText">
-                    <xsl:value-of select="cda:text" />
-                </xsl:variable>
-                <!-- Put whatever is in value with xsi:type = ST into a variable -->
-                <xsl:variable name="vValueST">
-                    <xsl:choose>
-                        <xsl:when test="cda:value/@xsi:type = 'ST'">
-                            <xsl:value-of select="cda:value[@xsi:type = 'ST']" />
-                        </xsl:when>
-                        <xsl:otherwise />
-                    </xsl:choose>
-                </xsl:variable>
-
-                <!-- If there is no value in either, AND there was no low or high, then put a note into text to pass FHIR validation
-                     If there is no value in either, there is no text. 
-                     If they are different concatenate, if they are the same just use text -->
-                <xsl:choose>
-                    <xsl:when test="not(cda:value/@xsi:type = 'IVL_PQ') and not(cda:value/cda:low) and not(cda:value/cda:high) and not($vText/string()) and not($vValueST/string())">
-                        <text>
-                            <xsl:attribute name="value">
-                                <xsl:value-of select="'No reference range supplied'" />
-                            </xsl:attribute>
-                        </text>
-                    </xsl:when>
-                    <xsl:when test="not($vText/string()) and not($vValueST/string())" />
-                    <xsl:when test="not($vText/string())">
-                        <text>
-                            <xsl:attribute name="value">
-                                <xsl:value-of select="$vValueST" />
-                            </xsl:attribute>
-                        </text>
-                    </xsl:when>
-                    <xsl:when test="not($vValueST/string())">
-                        <text>
-                            <xsl:attribute name="value">
-                                <xsl:value-of select="$vText" />
-                            </xsl:attribute>
-                        </text>
-                    </xsl:when>
-                    <xsl:when test="$vText = $vValueST">
-                        <text>
-                            <xsl:attribute name="value">
-                                <xsl:value-of select="$vText" />
-                            </xsl:attribute>
-                        </text>
-                    </xsl:when>
-                    <xsl:otherwise>
-                        <text>
-                            <xsl:attribute name="value">
-                                <xsl:value-of select="concat($vText, '; ', $vValueST)" />
-                            </xsl:attribute>
-                        </text>
-                    </xsl:otherwise>
-                </xsl:choose>
-            </xsl:for-each>
-        </referenceRange>
-    </xsl:template>
-
     <xsl:template match="cda:act[cda:templateId[@root = '2.16.840.1.113883.10.20.22.4.80']]" mode="reference">
         <xsl:param name="wrapping-elements" />
         <!-- Remove Encounter Diagnosis wrappers, since maps to Condition.category -->
@@ -631,6 +560,61 @@
                 </xsl:when>
                 <xsl:otherwise>
                     <xsl:attribute name="value" select="'final'" />
+                </xsl:otherwise>
+            </xsl:choose>
+        </xsl:element>
+    </xsl:template>
+
+    <!-- TEMPLATE: Uses the result-status-mapping file imported at the top of this file to match cda result status with fhir equivalents -->
+    <xsl:template match="cda:statusCode" mode="map-result-status">
+        <xsl:param name="pElementName" select="'status'" />
+        <xsl:variable name="vResultStatus" select="@code" />
+        <xsl:element name="{$pElementName}">
+            <xsl:choose>
+                <xsl:when test="$result-status-mapping/map[@cdaResultStatus = $vResultStatus]">
+                    <xsl:attribute name="value" select="$result-status-mapping/map[@cdaResultStatus = $vResultStatus]/@fhirLabStatus" />
+                </xsl:when>
+                <xsl:otherwise>
+                    <xsl:attribute name="value" select="'final'" />
+                </xsl:otherwise>
+            </xsl:choose>
+        </xsl:element>
+    </xsl:template>
+
+    <!-- TEMPLATE: Uses the medication-status-mapping file imported at the top of this file to match cda medication status with fhir equivalents -->
+    <xsl:template match="cda:statusCode" mode="map-medication-status">
+        <xsl:param name="pMoodCode" />
+
+        <xsl:variable name="vMedicationStatus" select="@code" />
+        <xsl:element name="status">
+            <xsl:choose>
+                <xsl:when test="$medication-status-mapping/map[@cdaMedicationStatus = $vMedicationStatus and @cdaMedicationMoodCode = $pMoodCode]">
+                    <xsl:attribute name="value" select="$medication-status-mapping/map[@cdaMedicationStatus = $vMedicationStatus and @cdaMedicationMoodCode = $pMoodCode]/@fhirMedicationStatus" />
+                </xsl:when>
+                <xsl:otherwise>
+                    <xsl:choose>
+                        <xsl:when test="$pMoodCode = 'EVN'">
+                            <xsl:attribute name="value" select="'completed'" />
+                        </xsl:when>
+                        <xsl:otherwise>
+                            <xsl:attribute name="value" select="'active'" />
+                        </xsl:otherwise>
+                    </xsl:choose>
+                </xsl:otherwise>
+            </xsl:choose>
+        </xsl:element>
+    </xsl:template>
+
+    <!-- TEMPLATE: Uses the immunization-status-mapping file imported at the top of this file to match cda immunization status with fhir equivalents -->
+    <xsl:template match="cda:statusCode" mode="map-immunization-status">
+        <xsl:variable name="vImmunizationStatus" select="@code" />
+        <xsl:element name="status">
+            <xsl:choose>
+                <xsl:when test="$immunization-status-mapping/map[@cdaImmunizationStatus = $vImmunizationStatus]">
+                    <xsl:attribute name="value" select="$immunization-status-mapping/map[@cdaImmunizationStatus = $vImmunizationStatus]/@fhirImmunizationStatus" />
+                </xsl:when>
+                <xsl:otherwise>
+                    <xsl:attribute name="value" select="'completed'" />
                 </xsl:otherwise>
             </xsl:choose>
         </xsl:element>
@@ -898,8 +882,8 @@
                 <xsl:value-of select="$pAuthor/cda:assignedAuthor/@lcg:uuid" />
             </xsl:when>
             <!-- Organization -->
-            <xsl:when test="$pAuthor/cda:assignedAuthor/cda:assignedOrganization">
-                <xsl:value-of select="$pAuthor/cda:assignedAuthor/cda:assignedOrganization/@lcg:uuid" />
+            <xsl:when test="$pAuthor/cda:assignedAuthor/cda:representedOrganization">
+                <xsl:value-of select="$pAuthor/cda:assignedAuthor/cda:representedOrganization/@lcg:uuid" />
             </xsl:when>
             <!-- Device -->
             <xsl:when test="$pAuthor/cda:assignedAuthor/cda:assignedAuthoringDevice">
@@ -908,6 +892,24 @@
             <xsl:otherwise>
                 <xsl:value-of select="$pAuthor/cda:assignedAuthor/@lcg:uuid" />
             </xsl:otherwise>
+        </xsl:choose>
+    </xsl:template>
+
+    <xsl:template name="get-informant-uuid">
+        <xsl:param name="pInformant" />
+        <xsl:choose>
+            <!-- AssignedEntity - Person -->
+            <xsl:when test="$pInformant/cda:assignedEntity/cda:assignedPerson">
+                <xsl:value-of select="$pInformant/cda:assignedEntity/@lcg:uuid" />
+            </xsl:when>
+            <!-- AssignedEntity - Organization -->
+            <xsl:when test="$pInformant/cda:assignedEntity/cda:representedOrganization">
+                <xsl:value-of select="$pInformant/cda:assignedEntity/cda:representedOrganization/@lcg:uuid" />
+            </xsl:when>
+            <!-- RelatedEntity - Person -->
+            <xsl:when test="$pInformant/cda:relatedEntity/cda:relatedPerson">
+                <xsl:value-of select="$pInformant/cda:relatedEntity/@lcg:uuid" />
+            </xsl:when>
         </xsl:choose>
     </xsl:template>
 
