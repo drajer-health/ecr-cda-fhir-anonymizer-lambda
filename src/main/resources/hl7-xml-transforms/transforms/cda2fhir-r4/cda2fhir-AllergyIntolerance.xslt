@@ -12,7 +12,7 @@
     </xsl:template>
 
     <xsl:template match="cda:observation[cda:templateId[@root = '2.16.840.1.113883.10.20.22.4.7' or @root = '2.16.840.1.113883.10.20.24.3.90']]">
-        <AllergyIntolerance>
+        <AllergyIntolerance xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://hl7.org/fhir">
 
             <xsl:call-template name="add-meta" />
             <xsl:apply-templates select="cda:id" />
@@ -20,16 +20,8 @@
             <verificationStatus>
                 <coding>
                     <system value="http://terminology.hl7.org/CodeSystem/allergyintolerance-verification" />
-                    <xsl:choose>
-                        <xsl:when test="@negationInd='true'">
-                            <code value="refuted" />
-                            <display value="Refuted" />
-                        </xsl:when>
-                        <xsl:otherwise>
-                            <code value="confirmed" />
-                            <display value="Confirmed" />
-                        </xsl:otherwise>
-                    </xsl:choose>
+                    <code value="confirmed" />
+                    <display value="Confirmed" />
                 </coding>
             </verificationStatus>
             <type>

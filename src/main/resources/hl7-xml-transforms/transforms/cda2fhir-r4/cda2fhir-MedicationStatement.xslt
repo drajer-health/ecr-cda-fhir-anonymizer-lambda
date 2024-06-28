@@ -53,11 +53,7 @@
                     <xsl:apply-templates select="." mode="reference" />
                 </partOf>
             </xsl:for-each>
-            <!-- status -->
-            <xsl:apply-templates select="cda:statusCode" mode='map-medication-status'>
-                <xsl:with-param name="pMoodCode" select="@moodCode"/>
-            </xsl:apply-templates>
-            
+            <status value="active" />
             <xsl:apply-templates select="cda:consumable" mode="medication-statement" />
             <xsl:call-template name="subject-reference" />
             <dateAsserted value="{lcg:cdaTS2date($dateAsserted)}" />
