@@ -416,7 +416,7 @@ public class AnonymizerService {
 			if (isResourceInList(entry, "Organization", allCustodianOrganization)) {
 				updatedResource = filterDataService.processJson(resourceJson, null, "custodianOrganization");
 			} else if (isResourceInList(entry, "Organization", getAllEmployerList)) {
-				updatedResource = filterDataService.processJson(resourceJson, null, "odh_employer");
+				updatedResource = filterDataService.processJson(resourceJson, null, "odh_organization");
 			}
 		} else if (resource instanceof RelatedPerson) {
 			if (isResourceInList(entry, "RelatedPerson", getAllEmployerList)) {
