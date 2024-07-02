@@ -14,6 +14,7 @@ import org.apache.commons.codec.Charsets;
 import org.apache.commons.io.IOUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.instance.model.api.IIdType;
@@ -22,12 +23,18 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Composition;
 import org.hl7.fhir.r4.model.Composition.SectionComponent;
+import org.hl7.fhir.r4.model.Narrative.NarrativeStatus;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.RelatedPerson;
 import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Narrative;
+
+import com.drajer.ecr.anonymizer.utils.FileUtils;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -37,14 +44,28 @@ import ca.uhn.fhir.parser.IParser;
 
 public class AnonymizerService {
 
+	
+	
 	private final String RR_COMP_SECTION_CODE = "88085-6";
 	private final String LOINC_URL = "http://loinc.org";
 	private final String RR_SUMMARY_SECTION_CODE = "55112-7";
 	private final String RR_CONDITION_OBS_CODE = "75323-6";
 	private final String REPORTABILITY_RESPONSE_SECTION_TITLE = "ReportabilityResponseInformationSection";
+
+	Map<String, Object> ecrAnonymizerProfileConfigMap;
+	
+	public  AnonymizerService()
+	{
+		ecrAnonymizerProfileConfigMap = getAnonymizerProfileConfig();
+	}
+
+	
+	
 	
 	public Bundle processBundleXml(String bundleXml,Map<String, Object> metaDataMap) throws Exception {
+	
 		FilterDataService filterDataService = new FilterDataService();
+		
 		FhirContext fhirContext = FhirContext.forR4();
 		IParser parser = fhirContext.newXmlParser();
 		IParser jsonParser = fhirContext.newJsonParser();
@@ -58,11 +79,12 @@ public class AnonymizerService {
 			for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
 				IBaseResource resource = entry.getResource();
 				String resourceType = fhirContext.getResourceType(resource);
+				addProfile(resource, resourceType);
 				String resourceJson = jsonParser.encodeResourceToString(resource);
 				JsonNode updatedResource;
 
 				updatedResource = filterCustomResource(entry, resourceJson, allCustodianOrganization,
-						getallEmployerList);
+						getallEmployerList,jsonParser,filterDataService);
 
 				if (null == updatedResource) {
 					updatedResource = filterDataService.processJson(resourceJson, metaDataMap, resourceType);
@@ -311,10 +333,17 @@ public class AnonymizerService {
 		section.setCode(sectionCodeableConcept);
 		Extension dataAbsentReasonExtension = new Extension();
 
+		Narrative narrative = new Narrative();
+		narrative.setStatus(Narrative.NarrativeStatus.EMPTY);
+        narrative.setDivAsString("<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>MASKED</p></div>");
+
+
 		dataAbsentReasonExtension.setUrl("http://hl7.org/fhir/StructureDefinition/data-absent-reason");
 		dataAbsentReasonExtension.setValue(new CodeType("masked"));
-
-		section.getText().addExtension(dataAbsentReasonExtension);
+		
+		narrative.addExtension(dataAbsentReasonExtension);
+		
+		section.setText(narrative);
 
 		section.setEntry(references);
 
@@ -404,28 +433,34 @@ public class AnonymizerService {
 	}	
 	
 	
-	public JsonNode filterCustomResource(BundleEntryComponent entry, String resourceJson,
-			List<Map<String, Object>> allCustodianOrganization, List<Map<String, Object>> getAllEmployerList)
-			throws IOException {
-		FilterDataService filterDataService = new FilterDataService();
+	public JsonNode filterCustomResource(BundleEntryComponent entry, String resourceJson, List<Map<String, Object>> allCustodianOrganization,
+			List<Map<String, Object>> getAllEmployerList, IParser jsonParser, FilterDataService filterDataService) throws IOException {
 
 		Resource resource = entry.getResource();
 		JsonNode updatedResource = null;
 
 		if (resource instanceof Organization) {
 			if (isResourceInList(entry, "Organization", allCustodianOrganization)) {
-				updatedResource = filterDataService.processJson(resourceJson, null, "custodianOrganization");
+
+				updatedResource = processResource(entry.getResource(), "anon_organization", jsonParser,filterDataService,
+						"custodianOrganization");
+
 			} else if (isResourceInList(entry, "Organization", getAllEmployerList)) {
-				updatedResource = filterDataService.processJson(resourceJson, null, "odh_organization");
+
+				updatedResource = processResource(entry.getResource(), "anon_organization", jsonParser,filterDataService,
+						"odh_organization");
 			}
 		} else if (resource instanceof RelatedPerson) {
 			if (isResourceInList(entry, "RelatedPerson", getAllEmployerList)) {
-				updatedResource = filterDataService.processJson(resourceJson, null, "odh_employer");
+
+				updatedResource = processResource(entry.getResource(), "relatedperson", jsonParser,filterDataService, "odh_employer");
+
 			}
 		}
 
 		return updatedResource;
 	}
+
 	public boolean isResourceInList(BundleEntryComponent entryComponent, String resourceType,
 			List<Map<String, Object>> resourceList) {
 		Resource resource = entryComponent.getResource();
@@ -484,6 +519,7 @@ public class AnonymizerService {
 
 						{
 
+							addProfile(resource, "odh_observation");
 							processReferences(bundle, Collections.singletonList((Reference) ext.getValue()), odhList);
 						}
 
@@ -517,4 +553,58 @@ public class AnonymizerService {
 
 		}
 	}
+	
+	
+	
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> getAnonymizerProfileConfig() {
+		if (ecrAnonymizerProfileConfigMap == null) {
+			Map<String, Object> ecrAnonymizerProfileConfigMap = FileUtils
+					.readFileContents("mappings/profile_mapping_config.json", new TypeReference<Map<String, Object>>() {
+					});
+
+			if (ecrAnonymizerProfileConfigMap == null || ecrAnonymizerProfileConfigMap.isEmpty()) {
+				throw new IllegalArgumentException("No Profile Found");
+			}
+
+			return ecrAnonymizerProfileConfigMap;
+		} else {
+			return ecrAnonymizerProfileConfigMap;
+		}
+	}
+
+	private JsonNode processResource(Resource resource, String type, IParser jsonParser, FilterDataService filterDataService, String filterKey)
+			throws IOException {
+		addProfile(resource, type);
+		String resourceJson = jsonParser.encodeResourceToString(resource);
+		return filterDataService.processJson(resourceJson, null, filterKey);
+	}
+
+	public void addProfile(IBaseResource ibaseResource, String type) {
+		
+		type=type!=null?type.toLowerCase():null;
+	
+		String profile = (String) ecrAnonymizerProfileConfigMap.getOrDefault(type, "");
+		if (!profile.isEmpty()) {
+			if (ibaseResource instanceof Resource) {
+				Resource resource = (Resource) ibaseResource;
+				resource.setMeta(getMetaData(profile));
+			}
+
+		}
+
+	}
+
+	public Meta getMetaData(String profile) {
+
+		Meta meta = new Meta();
+		CanonicalType profileCanonicalType = new CanonicalType();
+		profileCanonicalType.setValue(profile);
+		meta.getProfile().add(profileCanonicalType);
+
+		return meta;
+
+	}
+	
+	
 }
