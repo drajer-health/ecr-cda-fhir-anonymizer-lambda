@@ -83,9 +83,13 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			}
 			context.getLogger().log("metaDataFileName : " + metaDataFileName);
 			//get metadata json
-			InputStream metadataInputStream = getObject(bucket,metaDataFileName);
+			
+			S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucket, metaDataFileName));
+			InputStream metadataInputStream = s3Object.getObjectContent();
+			
 			// get metdata map
 			Map<String, Object> metaDataMap = streamToMap(metadataInputStream);
+			s3Object.close();
 			// process RR
 			Bundle rrBundle = processEvent(bucket, key,context,metaDataMap,false);
 			if (key.contains("RR")) {
@@ -146,7 +150,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			input = s3Object.getObjectContent();
 			outputFile = new File("/tmp/" + keyFileName);
 			context.getLogger().log("---- s3Object-Content....:" + s3Object.getObjectMetadata().getContentType());
-			s3Object.close();
+			
 			outputFile.setWritable(true);
 
 			context.getLogger().log("Output File---- " + key +"  : , bucket : "+bucket+" "+ outputFile.getAbsolutePath());
@@ -161,7 +165,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 				}
 				outputStream.close();
 			}
-
+			s3Object.close();
 			context.getLogger().log("Output File -- Length:" + outputFile.length());
 
 			UUID randomUUID = UUID.randomUUID();
@@ -380,13 +384,6 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			e.printStackTrace();
 		}
 	}
-	
-	private InputStream getObject(String bucket, String key) throws IOException {
-		S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucket, key));
-		InputStream inputStream = s3Object.getObjectContent();
-		s3Object.close();
-		return inputStream;
-	}	
 	
 	private Map<String, Object> streamToMap(InputStream inputStream) throws IOException {
 		ObjectMapper objectMapper = new ObjectMapper();
