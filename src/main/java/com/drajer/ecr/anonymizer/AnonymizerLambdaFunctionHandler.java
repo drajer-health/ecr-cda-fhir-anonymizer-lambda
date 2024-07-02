@@ -118,7 +118,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		} catch (Exception e) {
 			context.getLogger().log(e.getMessage());
 			e.printStackTrace();
-			throw new RuntimeException ("Lambda failiure : Key : "+key+" , bucket : "+bucket+" , Error : ",e);
+			throw new RuntimeException ("Lambda failure : Key : "+key+" , bucket : "+bucket+" , Error : ",e);
 		} finally {
 		}
 	}
