@@ -60,14 +60,16 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		// call ccda -- to fhir object
 		// convert fhir object to anonymizer
 		// write anonymizer to bucket
+		String key = null;
+		String bucket = null;
 		try {
 			SQSMessage message = event.getRecords().get(0);
 	        String messageBody = message.getBody();
 	        S3EventNotification s3EventNotification = S3EventNotification.parseJson(messageBody);
 	        S3EventNotification.S3EventNotificationRecord record = s3EventNotification.getRecords().get(0);
 			
-	        String bucket = record.getS3().getBucket().getName();
-	        String key = record.getS3().getObject().getKey();			
+	        bucket = record.getS3().getBucket().getName();
+	        key = record.getS3().getObject().getKey();			
 			
 			
 			context.getLogger().log("EventName:" + record.getEventName());
@@ -116,7 +118,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		} catch (Exception e) {
 			context.getLogger().log(e.getMessage());
 			e.printStackTrace();
-			throw new RuntimeException ("Lambda failiure:  ",e);
+			throw new RuntimeException ("Lambda failiure : Key : "+key+" , bucket : "+bucket+" , Error : ",e);
 		} finally {
 		}
 	}
@@ -143,12 +145,13 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucket, key));
 			input = s3Object.getObjectContent();
 			outputFile = new File("/tmp/" + keyFileName);
-
+			context.getLogger().log("---- s3Object-Content....:" + s3Object.getObjectMetadata().getContentType());
+			s3Object.close();
 			outputFile.setWritable(true);
 
-			context.getLogger().log("Output File----" + outputFile.getAbsolutePath());
-			context.getLogger().log("Output File -- CanWrite?:" + outputFile.canWrite());
-			context.getLogger().log("Output File -- Length:" + outputFile.length());
+			context.getLogger().log("Output File---- " + key +"  : , bucket : "+bucket+" "+ outputFile.getAbsolutePath());
+			context.getLogger().log("Output File -- CanWrite?:  "+ key +"  : , bucket : "+bucket+" "+outputFile.canWrite());
+			context.getLogger().log("Output File -- Length: " + key +"  : , bucket : "+bucket+" "+outputFile.length());
 
 			try (FileOutputStream outputStream = new FileOutputStream(outputFile, false)) {
 				int read;
@@ -160,7 +163,6 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			}
 
 			context.getLogger().log("Output File -- Length:" + outputFile.length());
-			context.getLogger().log("---- s3Object-Content....:" + s3Object.getObjectMetadata().getContentType());
 
 			UUID randomUUID = UUID.randomUUID();
 			File xsltFile = ResourceUtils.getFile("classpath:hl7-xml-transforms/transforms/cda2fhir-r4/NativeUUIDGen-cda2fhir.xslt");
@@ -382,6 +384,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 	private InputStream getObject(String bucket, String key) throws IOException {
 		S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucket, key));
 		InputStream inputStream = s3Object.getObjectContent();
+		s3Object.close();
 		return inputStream;
 	}	
 	
