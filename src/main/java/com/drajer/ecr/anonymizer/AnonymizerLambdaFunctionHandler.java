@@ -64,14 +64,16 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		// call ccda -- to fhir object
 		// convert fhir object to anonymizer
 		// write anonymizer to bucket
+		String key = null;
+		String bucket = null;
 		try {
 			SQSMessage message = event.getRecords().get(0);
 	        String messageBody = message.getBody();
 	        S3EventNotification s3EventNotification = S3EventNotification.parseJson(messageBody);
 	        S3EventNotification.S3EventNotificationRecord record = s3EventNotification.getRecords().get(0);
 			
-	        String bucket = record.getS3().getBucket().getName();
-	        String key = record.getS3().getObject().getKey();			
+	        bucket = record.getS3().getBucket().getName();
+	        key = record.getS3().getObject().getKey();			
 			
 			
 			context.getLogger().log("EventName:" + record.getEventName());
@@ -85,9 +87,13 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			}
 			context.getLogger().log("metaDataFileName : " + metaDataFileName);
 			//get metadata json
-			InputStream metadataInputStream = getObject(bucket,metaDataFileName);
+			
+			S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucket, metaDataFileName));
+			InputStream metadataInputStream = s3Object.getObjectContent();
+			
 			// get metdata map
 			Map<String, Object> metaDataMap = streamToMap(metadataInputStream);
+			s3Object.close();
 			// process RR
 			Bundle rrBundle = processEvent(bucket, key,context,metaDataMap,false);
 			if (key.contains("RR")) {
@@ -120,7 +126,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		} catch (Exception e) {
 			context.getLogger().log(e.getMessage());
 			e.printStackTrace();
-			throw new RuntimeException ("Lambda failiure:  ",e);
+			throw new RuntimeException ("Lambda failure : Key : "+key+" , bucket : "+bucket+" , Error : ",e);
 		} finally {
 		}
 	}
@@ -147,12 +153,13 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucket, key));
 			input = s3Object.getObjectContent();
 			outputFile = new File("/tmp/" + keyFileName);
-
+			context.getLogger().log("---- s3Object-Content....:" + s3Object.getObjectMetadata().getContentType());
+			
 			outputFile.setWritable(true);
 
-			context.getLogger().log("Output File----" + outputFile.getAbsolutePath());
-			context.getLogger().log("Output File -- CanWrite?:" + outputFile.canWrite());
-			context.getLogger().log("Output File -- Length:" + outputFile.length());
+			context.getLogger().log("Output File---- " + key +"  : , bucket : "+bucket+" "+ outputFile.getAbsolutePath());
+			context.getLogger().log("Output File -- CanWrite?:  "+ key +"  : , bucket : "+bucket+" "+outputFile.canWrite());
+			context.getLogger().log("Output File -- Length: " + key +"  : , bucket : "+bucket+" "+outputFile.length());
 
 			try (FileOutputStream outputStream = new FileOutputStream(outputFile, false)) {
 				int read;
@@ -162,9 +169,8 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 				}
 				outputStream.close();
 			}
-
+			s3Object.close();
 			context.getLogger().log("Output File -- Length:" + outputFile.length());
-			context.getLogger().log("---- s3Object-Content....:" + s3Object.getObjectMetadata().getContentType());
 
 			UUID randomUUID = UUID.randomUUID();
 			File xsltFile = ResourceUtils.getFile("classpath:hl7-xml-transforms/transforms/cda2fhir-r4/NativeUUIDGen-cda2fhir.xslt");
@@ -404,12 +410,6 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			e.printStackTrace();
 		}
 	}
-	
-	private InputStream getObject(String bucket, String key) throws IOException {
-		S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucket, key));
-		InputStream inputStream = s3Object.getObjectContent();
-		return inputStream;
-	}	
 	
 	private Map<String, Object> streamToMap(InputStream inputStream) throws IOException {
 		ObjectMapper objectMapper = new ObjectMapper();
