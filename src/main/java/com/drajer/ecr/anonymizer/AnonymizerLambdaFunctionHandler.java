@@ -11,13 +11,17 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Composition;
+import org.hl7.fhir.r4.model.Composition.SectionComponent;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.Identifier;
@@ -214,22 +218,44 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 
 	public String addAgeObservationBundleEntry(String bundleXml) {
 		IParser xmlParser = FhirContext.forR4().newXmlParser();
+		
+		AnonymizerService anonymizerService = new AnonymizerService();
 
-		try {
-			Bundle bundle = xmlParser.parseResource(Bundle.class, bundleXml);
+			try {
+				Bundle bundle = xmlParser.parseResource(Bundle.class, bundleXml);
 
-			BundleEntryComponent patientEntry = getBundleEntryByType(bundle, ResourceType.PATIENT.toCode());
-			Patient patient = patientEntry != null ? (Patient) patientEntry.getResource() : null;
+				Composition eicrComposition = (Composition) anonymizerService.getResourceByType(bundle, "Composition");
+				SectionComponent socialHistorySection = null;
+				if (eicrComposition != null) {
+					List<SectionComponent> section = eicrComposition.getSection();
 
-			if (patient != null && patient.hasBirthDateElement()) {
-				BundleEntryComponent observationEntry = new BundleEntryComponent();
-				observationEntry.setFullUrl("urn:uuid:" + getGuid());
-				Observation ageObservation = createAgeObservationResource(patient, patientEntry.getFullUrl());
-				observationEntry.setResource(ageObservation);
-				bundle.addEntry(observationEntry);
-			}
+					socialHistorySection = anonymizerService.findSectionByCode(section, "29762-2", LOINC_URL);
+				}
 
-			return xmlParser.setPrettyPrint(true).encodeResourceToString(bundle);
+				BundleEntryComponent patientEntry = getBundleEntryByType(bundle, ResourceType.PATIENT.toCode());
+				Patient patient = patientEntry != null ? (Patient) patientEntry.getResource() : null;
+
+				if (patient != null && patient.hasBirthDateElement()) {
+					BundleEntryComponent observationEntry = new BundleEntryComponent();
+					observationEntry.setFullUrl("urn:uuid:" + getGuid());
+					Observation ageObservation = createAgeObservationResource(patient, patientEntry.getFullUrl());
+					anonymizerService.addProfile(ageObservation, "caculated-age");
+					observationEntry.setResource(ageObservation);
+					bundle.addEntry(observationEntry);
+
+					if (socialHistorySection != null) {
+						Reference reference = new Reference();
+
+						reference.setReference(observationEntry.getFullUrl());
+						reference.setDisplay(null);
+						if (!socialHistorySection.hasEntry()) {
+							socialHistorySection.setEntry(new ArrayList<>());
+						}
+						socialHistorySection.getEntry().add(reference);
+					}
+				}
+
+				return xmlParser.setPrettyPrint(true).encodeResourceToString(bundle);
 
 		} catch (DataFormatException e) {
 			String errorMessage = "Failed to parse XML: " + e.getMessage();

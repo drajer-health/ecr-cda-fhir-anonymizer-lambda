@@ -28,6 +28,15 @@ public class FilterDataService {
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
+	private Map<String, List<Map<String, Object>>> ecrDataMaskingConfigList = null;
+
+	public FilterDataService() {
+		String ecrAnonymizerConfigFile = readPropertiesFile().getProperty("ecr.anonymizer.config.file");
+		ecrDataMaskingConfigList = FileUtils.readFileContents(ecrAnonymizerConfigFile,
+				new TypeReference<Map<String, List<Map<String, Object>>>>() {
+				});
+	}
+
 	/**
 	 * Processes the input JSON string by masking specified elements based on the
 	 * provided configuration.
@@ -255,10 +264,9 @@ public class FilterDataService {
 
 		if (maskedElement != null && !maskedElement.isEmpty()) {
 			maskedElement.forEach((dataKey, dataValue) -> {
-				if (key.equals(dataKey) || dataKey.equals("_" + key)) {
-					JsonNode jsonNodeValue = objectMapper.valueToTree(dataValue);
-					maskedNode.set(dataKey, jsonNodeValue);
-				}
+				JsonNode jsonNodeValue = objectMapper.valueToTree(dataValue);
+				maskedNode.set(dataKey, jsonNodeValue);
+
 			});
 		}
 		return maskedNode;
@@ -373,11 +381,14 @@ public class FilterDataService {
 	 */
 	@SuppressWarnings("unchecked")
 	private List<Map<String, Object>> getConfigList(String key) {
-		String ecrAnonymizerConfigFile = readPropertiesFile().getProperty("ecr.anonymizer.config.file");
-		Map<String, List<Map<String, Object>>> ecrDataMaskingConfigList = FileUtils
-				.readFileContents(ecrAnonymizerConfigFile, new TypeReference<Map<String, List<Map<String, Object>>>>() {
-				});
 
+		if (ecrDataMaskingConfigList == null) {
+			String ecrAnonymizerConfigFile = readPropertiesFile().getProperty("ecr.anonymizer.config.file");
+			ecrDataMaskingConfigList = FileUtils.readFileContents(ecrAnonymizerConfigFile,
+					new TypeReference<Map<String, List<Map<String, Object>>>>() {
+					});
+
+		}
 		Object value = ecrDataMaskingConfigList.get(key);
 		if (value != null) {
 			if (value instanceof List) {
@@ -491,7 +502,7 @@ public class FilterDataService {
 
 		return false;
 	}
-	
+
 	public ObjectNode applyConditionMaskByType(ObjectNode maskedNode, Map<String, Object> maskData, String key,
 			JsonNode value) {
 		Map<String, Object> conditionRule = (Map<String, Object>) maskData.get("condition");
@@ -501,7 +512,7 @@ public class FilterDataService {
 			return maskedNode;
 		}
 
-		String type = (String) conditionRule.getOrDefault("type","");
+		String type = (String) conditionRule.getOrDefault("type", "");
 		List<String> conditionValueList = (List<String>) conditionRule.getOrDefault("values", Collections.emptyList());
 
 		switch (type.toLowerCase()) {
@@ -588,6 +599,5 @@ public class FilterDataService {
 		maskedNode.set(key, value);
 		return maskedNode;
 	}
-
 
 }

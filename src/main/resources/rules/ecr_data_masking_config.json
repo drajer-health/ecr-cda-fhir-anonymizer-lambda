@@ -73,24 +73,10 @@
 			"removeAll": false
 		},
 		{
-			"targetElement": "name.family",
+			"targetElement": "name",
 			"action": "mask",
 			"maskedData": {
-				"_family": {
-					"extension": [
-						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
-					]
-				}
-			}
-		},
-		{
-			"targetElement": "name.given",
-			"action": "mask",
-			"maskedData": {
-				"given": [
+				"name": [
 					{
 						"extension": [
 							{
@@ -103,11 +89,9 @@
 			}
 		},
 		{
-			"targetElement": "name.text",
+			"targetElement": "address.line",
 			"action": "mask",
-			"maskedData": {
-				
-			}
+			"maskedData": {}
 		},
 		{
 			"targetElement": "telecom.value",
@@ -138,57 +122,10 @@
 			}
 		},
 		{
-			"targetElement": "address.line",
+			"targetElement": "contact.name",
 			"action": "mask",
 			"maskedData": {
-				
-			}
-		},
-		{
-			"targetElement": "contact.name.family",
-			"action": "mask",
-			"maskedData": {
-				"_family": {
-					"extension": [
-						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
-					]
-				}
-			}
-		},
-
-		{
-			"targetElement": "contact.name.given",
-			"action": "mask",
-			"maskedData": {
-				"given":[ {
-					"extension": [
-						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
-					]
-				}
-				]
-			}
-		},
-
-		{
-			"targetElement": "contact.name.text",
-			"action": "mask",
-			"maskedData": {
-				
-			}
-		},
-
-
-		{
-			"targetElement": "contact.telecom.value",
-			"action": "mask",
-			"maskedData": {
-				"_value": {
+				"name": {
 					"extension": [
 						{
 							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
@@ -199,10 +136,10 @@
 			}
 		},
 		{
-			"targetElement": "contact.address",
+			"targetElement": "contact.telecom",
 			"action": "mask",
 			"maskedData": {
-				"address": 
+				"telecom": [
 					{
 						"extension": [
 							{
@@ -211,16 +148,14 @@
 							}
 						]
 					}
-			
+				]
 			}
-		}
-	],
-	"odh_organization": [
+		},
 		{
-			"targetElement": "telecom.value",
+			"targetElement": "contact.address",
 			"action": "mask",
 			"maskedData": {
-				"_value": {
+				"address": {
 					"extension": [
 						{
 							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
@@ -228,6 +163,24 @@
 						}
 					]
 				}
+			}
+		}
+	],
+	"odh_organization": [
+		{
+			"targetElement": "telecom",
+			"action": "mask",
+			"maskedData": {
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
 			}
 		},
 		{
@@ -246,20 +199,18 @@
 				]
 			}
 		},
-
 		{
 			"targetElement": "name",
 			"action": "mask",
 			"maskedData": {
-				"name": 
-					{
-						"extension": [
-							{
-								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-								"valueCode": "masked"
-							}
-						]
-					}
+				"name": {
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
 			}
 		}
 	],
@@ -297,54 +248,10 @@
 	],
 	"RelatedPerson": [
 		{
-			"targetElement": "identifier.value",
+			"targetElement": "identifier",
 			"action": "mask",
 			"maskedData": {
-				"_value": {
-					"extension": [
-						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
-					]
-				}
-			},
-			"removeAll": false
-		},
-		{
-			"targetElement": "identifier.system",
-			"action": "mask",
-			"maskedData": {
-				"_system": {
-					"extension": [
-						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
-					]
-				}
-			},
-			"removeAll": false
-		},
-		{
-			"targetElement": "name.family",
-			"action": "mask",
-			"maskedData": {
-				"_family": {
-					"extension": [
-						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
-					]
-				}
-			}
-		},
-		{
-			"targetElement": "name.given",
-			"action": "mask",
-			"maskedData": {
-				"given": [
+				"identifier": [
 					{
 						"extension": [
 							{
@@ -354,12 +261,23 @@
 						]
 					}
 				]
-			}
+			},
+			"removeAll": false
 		},
 		{
-			"targetElement": "name.text",
+			"targetElement": "name",
 			"action": "mask",
 			"maskedData": {
+				"name": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
 			}
 		},
 		{
@@ -379,17 +297,19 @@
 			}
 		},
 		{
-			"targetElement": "telecom.value",
+			"targetElement": "telecom",
 			"action": "mask",
 			"maskedData": {
-				"_value": {
-					"extension": [
-						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
-					]
-				}
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
 			}
 		},
 		{
@@ -416,9 +336,9 @@
 				"_value": {
 					"extension": [
 						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
 					]
 				}
 			}
@@ -426,17 +346,19 @@
 	],
 	"Practitioner": [
 		{
-			"targetElement": "telecom.value",
+			"targetElement": "telecom",
 			"action": "mask",
 			"maskedData": {
-				"_value": {
-					"extension": [
-						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
-					]
-				}
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
 			}
 		},
 		{
@@ -456,39 +378,27 @@
 			}
 		},
 		{
-			"targetElement": "name.family",
+			"targetElement": "name",
 			"action": "mask",
 			"maskedData": {
-				"_family": {
-					"extension": [
-						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
-					]
-				}
-			}
-		},
-		{
-			"targetElement": "name.given",
-			"action": "mask",
-			"maskedData": {
-				"given": [
+				"name": [
 					{
 						"extension": [
 							{
 								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
 								"valueCode": "masked"
 							}
-						]
+						],
+						"_family": {
+							"extension": [
+								{
+									"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+									"valueCode": "masked"
+								}
+							]
+						}
 					}
 				]
-			}
-		},
-		{
-			"targetElement": "name.text",
-			"action": "mask",
-			"maskedData": {
 			}
 		}
 	],
@@ -531,24 +441,10 @@
 	],
 	"odh_employer": [
 		{
-			"targetElement": "name.family",
+			"targetElement": "identifier",
 			"action": "mask",
 			"maskedData": {
-				"_family": {
-					"extension": [
-						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
-					]
-				}
-			}
-		},
-		{
-			"targetElement": "name.given",
-			"action": "mask",
-			"maskedData": {
-				"given": [
+				"identifier": [
 					{
 						"extension": [
 							{
@@ -558,27 +454,23 @@
 						]
 					}
 				]
-			}
+			},
+			"removeAll": false
 		},
 		{
-			"targetElement": "name.text",
+			"targetElement": "name",
 			"action": "mask",
 			"maskedData": {
-				
-			}
-		},
-		{
-			"targetElement": "telecom.value",
-			"action": "mask",
-			"maskedData": {
-				"_value": {
-					"extension": [
-						{
-							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-							"valueCode": "masked"
-						}
-					]
-				}
+				"name": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
 			}
 		},
 		{
@@ -595,6 +487,36 @@
 						]
 					}
 				]
+			}
+		},
+		{
+			"targetElement": "telecom",
+			"action": "mask",
+			"maskedData": {
+				"telecom": [
+					{
+						"extension": [
+							{
+								"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+								"valueCode": "masked"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"targetElement": "birthDate",
+			"action": "mask",
+			"maskedData": {
+				"_birthDate": {
+					"extension": [
+						{
+							"url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+							"valueCode": "masked"
+						}
+					]
+				}
 			}
 		}
 	]
