@@ -3,12 +3,18 @@
     xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:lcg="http://www.lantanagroup.com"
     exclude-result-prefixes="lcg xsl cda fhir xs xsi sdtc xhtml" version="2.0">
 
-    <!-- Match if this is a substanceAdministration inside a Medication Administered, Admission Medication, or Procedures section -->
-    <xsl:template match="
+    <!-- Match if this is a substanceAdministration inside a Medication Administered, Admission Medication, or Procedures section, or Medications Section -->
+    <!--<xsl:template match="
             cda:substanceAdministration[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.16'][@moodCode = 'EVN']
             [ancestor::*/cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.38'] or
             ancestor::*/cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.44'] or
-            ancestor::*/cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.7.1']]" mode="bundle-entry">
+            ancestor::*/cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.7.1'] or
+            ancestor::*/cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.1.1']]" mode="bundle-entry">-->
+    
+    <!-- Match all substanceAdministration with moodCode of 'EVN' - this is an evoloving mapping in the C-CDA to FHIR project - will update when that group has decided on mapping -->
+    <xsl:template match="
+        cda:substanceAdministration[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.16'][@moodCode = 'EVN']" mode="bundle-entry">
+     
         <xsl:call-template name="create-bundle-entry" />
 
         <xsl:apply-templates select="cda:author" mode="bundle-entry" />
@@ -53,7 +59,11 @@
             <!-- Therapeutic Response to Medication -->
             <xsl:apply-templates select="cda:entryRelationship/cda:observation[cda:templateId/@root = '2.16.840.1.113883.10.20.15.2.3.37']" mode="extension" />
             <xsl:apply-templates select="cda:id" />
-            <status value="completed" />
+            <!-- status -->
+            <xsl:apply-templates select="cda:statusCode" mode='map-medication-status'>
+                <xsl:with-param name="pMoodCode" select="@moodCode"/>
+                <xsl:with-param name="pMedicationResource" select="'MedicationAdministration'"/>
+            </xsl:apply-templates>
 
             <!--<xsl:apply-templates select="cda:consumable" mode="medication-administration" />-->
             
@@ -86,10 +96,11 @@
         </MedicationAdministration>
     </xsl:template>
 
-    <!-- Match if this is a substanceAdministration inside a Medication Administered or Procedures section -->
+    <!-- Match if this is a substanceAdministration inside a Medication Administered or Procedures section or Medications Section-->
     <xsl:template match="
             cda:substanceAdministration[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.16'][@moodCode = 'EVN']
-            [ancestor::*/cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.38'] or ancestor::*/cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.7.1']]">
+            [ancestor::*/cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.38'] or ancestor::*/cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.7.1']  or
+            ancestor::*/cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.1.1']]">
         <xsl:variable name="dateAsserted">
             <xsl:choose>
                 <xsl:when test="ancestor-or-self::cda:*/cda:author/cda:time/@value">
@@ -123,20 +134,11 @@
                 </partOf>
             </xsl:if>
 
-            <status value="completed" />
-            <!--<!-\- If this is inside a Procedure we want to reference a medication here rather than have a medicationCodeableConcept so we can reference it from the Procedure -\->
-            <xsl:choose>
-                <xsl:when test="ancestor::*/cda:templateId[@root = '2.16.840.1.113883.10.20.22.2.7.1']">
-                    <medicationReference>
-                        <reference value="urn:uuid:{cda:consumable/cda:manufacturedProduct/@lcg:uuid}" />
-                    </medicationReference>
-                </xsl:when>
-                <xsl:otherwise>
-                    <xsl:apply-templates select="cda:consumable" mode="medication-administration">
-                        <xsl:with-param name="pElementName">medicationCodeableConcept</xsl:with-param>
-                    </xsl:apply-templates>
-                </xsl:otherwise>
-            </xsl:choose>-->
+            <!-- status -->
+            <xsl:apply-templates select="cda:statusCode" mode='map-medication-status'>
+                <xsl:with-param name="pMoodCode" select="@moodCode"/>
+                <xsl:with-param name="pMedicationResource" select="'MedicationAdministration'"/>
+            </xsl:apply-templates>
             
             <xsl:for-each select="cda:consumable/cda:manufacturedProduct">
                 <medicationReference>
@@ -156,7 +158,7 @@
                 </supportingInformation>
             </xsl:for-each>
 
-            <!-- Doesn't make any sense to have a repeat instruction inside a MedicationAdministration 
+            <!-- Doesn't make sense to have a repeat instruction inside a MedicationAdministration 
                  If there is an effectiveTime with operator='A', treat as either period or an instant
                  Also there can only be one effective[x] in a MedicationAdministration so just take the first one-->
             <xsl:choose>
@@ -209,52 +211,6 @@
                 </xsl:apply-templates>
             </dosage>
         </xsl:if>
-        <!--<xsl:choose>
-            <xsl:when test="cda:routeCode/@code or cda:doseQuantity/@value or cda:approachSiteCode/@code">
-                <dosage>
-                    <xsl:apply-templates select="cda:approachSiteCode">
-                        <xsl:with-param name="pElementName">site</xsl:with-param>
-                    </xsl:apply-templates>
-                    <xsl:apply-templates select="cda:routeCode">
-                        <xsl:with-param name="pElementName">route</xsl:with-param>
-                    </xsl:apply-templates>
-                    <xsl:apply-templates select="cda:doseQuantity">
-                        <xsl:with-param name="pElementName">dose</xsl:with-param>
-                        <xsl:with-param name="pSimpleQuantity" select="true()" />
-                    </xsl:apply-templates>
-                </dosage>
-            </xsl:when>
-            <xsl:when test="not(cda:routeCode) and not(cda:approachSiteCode) and not(cda:doseQuantity)" />
-            <xsl:when test="cda:doseQuanity/@nullFlavor and not(cda:routeCode) and not(cda:approachSiteCode)">
-                <dosage>
-                    <xsl:apply-templates select="cda:doseQuantity/@nullFlavor" mode="data-absent-reason-extension" />
-                </dosage>
-            </xsl:when>
-            <xsl:when test="cda:routeCode/@nullFlavor and cda:approachSiteCode/@nullFlavor">
-                <dosage>
-                    <site>
-                        <xsl:apply-templates select="cda:approachSiteCode/@nullFlavor" mode="data-absent-reason-extension" />
-                    </site>
-                    <route>
-                        <xsl:apply-templates select="cda:routeCode/@nullFlavor" mode="data-absent-reason-extension" />
-                    </route>
-                </dosage>
-            </xsl:when>
-            <xsl:when test="cda:routeCode/@nullFlavor">
-                <dosage>
-                    <route>
-                        <xsl:apply-templates select="cda:routeCode/@nullFlavor" mode="data-absent-reason-extension" />
-                    </route>
-                </dosage>
-            </xsl:when>
-            <xsl:when test="cda:approachSiteCode/@nullFlavor">
-                <dosage>
-                    <site>
-                        <xsl:apply-templates select="cda:approachSiteCode/@nullFlavor" mode="data-absent-reason-extension" />
-                    </site>
-                </dosage>
-            </xsl:when>
-        </xsl:choose>-->
     </xsl:template>
 
     <xsl:template match="cda:effectiveTime[@xsi:type = 'IVL_TS']" mode="medication-administration">

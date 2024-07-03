@@ -2,7 +2,7 @@
 <xsl:stylesheet xmlns="http://hl7.org/fhir" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:sdtc="urn:hl7-org:sdtc"
     xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:lcg="http://www.lantanagroup.com"
     exclude-result-prefixes="lcg xsl cda fhir xs xsi sdtc xhtml" version="2.0">
-
+    <!-- Match all substanceAdministration with moodCode of 'INT' - this is an evoloving mapping in the C-CDA to FHIR project - will update when that group has decided on mapping -->
     <xsl:template match="cda:substanceAdministration[cda:templateId[@root = '2.16.840.1.113883.10.20.22.4.16' or @root = '2.16.840.1.113883.10.20.22.4.42']][@moodCode = 'INT']" mode="bundle-entry">
         <xsl:call-template name="create-bundle-entry" />
         <!--<xsl:apply-templates select="cda:entryRelationship/cda:supply[cda:templateId[@root = '2.16.840.1.113883.10.20.22.4.18']]" mode="bundle-entry" />-->
@@ -26,7 +26,13 @@
                 <profile value="http://hl7.org/fhir/us/core/StructureDefinition/us-core-medicationrequest" />
             </meta>
             <xsl:apply-templates select="cda:id" />
-            <status value="active" />
+            
+            <!-- status -->
+            <xsl:apply-templates select="cda:statusCode" mode='map-medication-status'>
+                <xsl:with-param name="pMoodCode" select="@moodCode"/>
+                <xsl:with-param name="pMedicationResource" select="'MedicationRequest'"/>
+            </xsl:apply-templates>
+            
             <!-- This is an actual order in the Pharmacist's system -->
             <intent value="order" />
 
@@ -109,12 +115,27 @@
                             </xsl:choose>
                         </xsl:when>
                     </xsl:choose>
-                    <xsl:if test="cda:effectiveTime[@xsi:type = 'IVL_TS'] or cda:effectiveTime[@operator = 'A']">
+                    <xsl:if test="cda:effectiveTime[@xsi:type = 'IVL_TS'] or cda:effectiveTime[@operator = 'A'] or cda:effectiveTime[@value]">
                         <timing>
-                            <repeat>
-                                <xsl:apply-templates select="cda:effectiveTime[@xsi:type = 'IVL_TS']" mode="medication-request" />
-                                <xsl:apply-templates select="cda:effectiveTime[@operator = 'A']" mode="medication-request" />
-                            </repeat>
+                            <xsl:if test="cda:effectiveTime[@value][not(@operator = 'A')]">
+                                <xsl:apply-templates select="cda:effectiveTime[@value][not(@operator = 'A')]" mode="instant">
+                                    <xsl:with-param name="pElementName">event</xsl:with-param>
+                                </xsl:apply-templates>
+                            </xsl:if>
+                            <xsl:if test="cda:effectiveTime[@xsi:type = 'IVL_TS'] or cda:effectiveTime[@operator = 'A']">
+                                <repeat>
+                                    <xsl:apply-templates select="cda:effectiveTime[@xsi:type = 'IVL_TS']" mode="medication-request" />
+                                    <xsl:apply-templates select="cda:effectiveTime[@operator = 'A'][not(@xsi:type = 'EIVL_TS')]" mode="medication-request" />
+                                </repeat>
+                            </xsl:if>
+                            <xsl:if test="cda:effectiveTime[@xsi:type = 'EIVL_TS']/cda:event[@code]">
+                                <code>
+                                    <coding>
+                                        <system value="http://terminology.hl7.org/CodeSystem/v3-TimingEvent" />
+                                        <code value="{cda:effectiveTime/cda:event/@code}" />
+                                    </coding>
+                                </code>
+                            </xsl:if>
                         </timing>
                     </xsl:if>
                     <xsl:apply-templates select="cda:approachSiteCode">
@@ -208,7 +229,8 @@
                     </xsl:if>
 
                     <!-- performer (max 1): can only be an Organization -->
-                    <xsl:apply-templates select="cda:entryRelationship/cda:supply[cda:templateId[@root = '2.16.840.1.113883.10.20.22.4.17']]/cda:performer[1][cda:assignedEntity/cda:representedOrganization]" mode="rename-reference-participant">
+                    <xsl:apply-templates select="cda:entryRelationship/cda:supply[cda:templateId[@root = '2.16.840.1.113883.10.20.22.4.17']]/cda:performer[1][cda:assignedEntity/cda:representedOrganization]"
+                        mode="rename-reference-participant">
                         <xsl:with-param name="pElementName">performer</xsl:with-param>
                         <xsl:with-param name="pParticipantType">organization</xsl:with-param>
                     </xsl:apply-templates>
@@ -240,10 +262,52 @@
     </xsl:template>
 
     <xsl:template match="cda:effectiveTime[@operator = 'A'][@xsi:type = 'PIVL_TS']" mode="medication-request">
-        <xsl:if test="cda:period">
+
+
+        <!--<xsl:if test="cda:period">
             <period value="{cda:period/@value}" />
             <periodUnit value="{cda:period/@unit}" />
-        </xsl:if>
+        </xsl:if>-->
+
+        <xsl:choose>
+            <xsl:when test="cda:period/@value and not(cda:period/cda:low) and not(cda:period/cda:high)">
+                <period>
+                    <xsl:attribute name="value">
+                        <xsl:value-of select="normalize-space(cda:period/@value)" />
+                    </xsl:attribute>
+                </period>
+                <periodUnit value="{cda:period/@unit}" />
+            </xsl:when>
+            <xsl:when test="not(cda:period/@value) and cda:period/cda:low/@value and cda:period/cda:high/@value">
+                <period>
+                    <xsl:attribute name="value">
+                        <xsl:value-of select="cda:period/cda:low/@value" />
+                    </xsl:attribute>
+                </period>
+                <periodMax>
+                    <xsl:attribute name="value">
+                        <xsl:value-of select="cda:period/cda:high/@value" />
+                    </xsl:attribute>
+                </periodMax>
+                <periodUnit value="{cda:period/cda:low/@unit}" />
+            </xsl:when>
+            <xsl:when test="not(cda:period/@value) and cda:period/cda:low/@value">
+                <period>
+                    <xsl:attribute name="value">
+                        <xsl:value-of select="cda:period/cda:low/@value" />
+                    </xsl:attribute>
+                </period>
+                <periodUnit value="{cda:period/cda:low/@unit}" />
+            </xsl:when>
+            <xsl:when test="not(cda:period/@value) and not(cda:period/cda:low/@value) and cda:period/cda:high/@value">
+                <period>
+                    <xsl:attribute name="value">
+                        <xsl:value-of select="cda:period/cda:high/@value" />
+                    </xsl:attribute>
+                </period>
+                <periodUnit value="{cda:period/cda:high/@unit}" />
+            </xsl:when>
+        </xsl:choose>
     </xsl:template>
 
     <xsl:template match="cda:effectiveTime[@operator = 'A']" mode="medication-request" priority="-1">
