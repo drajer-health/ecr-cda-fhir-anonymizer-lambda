@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,8 +46,6 @@ import ca.uhn.fhir.parser.IParser;
 
 public class AnonymizerService {
 
-	
-	
 	private final String RR_COMP_SECTION_CODE = "88085-6";
 	private final String LOINC_URL = "http://loinc.org";
 	private final String RR_SUMMARY_SECTION_CODE = "55112-7";
@@ -53,19 +53,15 @@ public class AnonymizerService {
 	private final String REPORTABILITY_RESPONSE_SECTION_TITLE = "ReportabilityResponseInformationSection";
 
 	Map<String, Object> ecrAnonymizerProfileConfigMap;
-	
-	public  AnonymizerService()
-	{
+
+	public AnonymizerService() {
 		ecrAnonymizerProfileConfigMap = getAnonymizerProfileConfig();
 	}
 
-	
-	
-	
-	public Bundle processBundleXml(String bundleXml,Map<String, Object> metaDataMap) throws Exception {
-	
+	public Bundle processBundleXml(String bundleXml, Map<String, Object> metaDataMap) throws Exception {
+
 		FilterDataService filterDataService = new FilterDataService();
-		
+
 		FhirContext fhirContext = FhirContext.forR4();
 		IParser parser = fhirContext.newXmlParser();
 		IParser jsonParser = fhirContext.newJsonParser();
@@ -73,8 +69,9 @@ public class AnonymizerService {
 
 		try {
 			Bundle bundle = parser.parseResource(Bundle.class, bundleXml);
-			List<Map<String, Object>> allCustodianOrganization = getAllCustodianOrganization(bundle);
+//			List<Map<String, Object>> allCustodianOrganization = getAllCustodianOrganization(bundle);
 			List<Map<String, Object>> getallEmployerList = getallOdhObsEmployerList(bundle);
+			removeAllContactExposure(bundle);
 
 			for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
 				IBaseResource resource = entry.getResource();
@@ -83,8 +80,8 @@ public class AnonymizerService {
 				String resourceJson = jsonParser.encodeResourceToString(resource);
 				JsonNode updatedResource;
 
-				updatedResource = filterCustomResource(entry, resourceJson, allCustodianOrganization,
-						getallEmployerList,jsonParser,filterDataService);
+				updatedResource = filterCustomResource(entry, resourceJson, null, getallEmployerList, jsonParser,
+						filterDataService);
 
 				if (null == updatedResource) {
 					updatedResource = filterDataService.processJson(resourceJson, metaDataMap, resourceType);
@@ -102,9 +99,9 @@ public class AnonymizerService {
 			return bundle;
 
 		} catch (DataFormatException e) {
-			throw new RuntimeException( "Failed to parse XML: " + e);
+			throw new RuntimeException("Failed to parse XML: " + e);
 		} catch (Exception e) {
-			throw new RuntimeException( "An unexpected error occurred while processing the XML bundle:" + e);
+			throw new RuntimeException("An unexpected error occurred while processing the XML bundle:" + e);
 		}
 	}
 
@@ -211,32 +208,6 @@ public class AnonymizerService {
 		return null;
 	}
 
-	public Resource getResourceByTypeAndId(Bundle bundle, String resourceType, String id, IIdType fullurl) {
-
-		// Iterate through the entries in the bundle
-		for (BundleEntryComponent entry : bundle.getEntry()) {
-			Resource resource = entry.getResource();
-
-			if (resource.getResourceType().toString().equals(resourceType) && resource.hasIdElement()
-					&& resource.getIdElement().hasIdPart() && resource.getIdElement().getIdPart().equals(id)) {
-
-				return resource;
-			} else if (resource.hasIdElement() && resource.getIdElement().hasIdPart()
-					&& resource.getIdElement().getIdPart().equals(id)) {
-				return resource;
-			} else if (fullurl != null && entry.hasFullUrl()) {
-				String entryFullUrl = entry.getFullUrl();
-				String fullUrlString = fullurl.getValue();
-				if (entryFullUrl.equals(fullUrlString)) {
-					return resource;
-				}
-			}
-		}
-
-		return null;
-
-	}
-
 	public boolean isCompositionValid(Composition composition, String code, String system) {
 		CodeableConcept type = composition.getType();
 
@@ -281,7 +252,9 @@ public class AnonymizerService {
 				String id = reference.getReferenceElement().getIdPart();
 				IIdType fullurl = reference.getReferenceElement();
 
-				Resource resource = getResourceByTypeAndId(bundle, resourceType, id, fullurl);
+				BundleEntryComponent entry = getEntryByTypeAndId(bundle, resourceType, id, fullurl);
+
+				Resource resource = entry != null ? entry.getResource() : null;
 
 				if (resource instanceof Observation) {
 					Observation observation = (Observation) resource;
@@ -307,7 +280,9 @@ public class AnonymizerService {
 				String id = reference.getReferenceElement().getIdPart();
 
 				IIdType fullurl = reference.getReferenceElement();
-				Resource resource = getResourceByTypeAndId(bundle, resourceType, id, fullurl);
+				BundleEntryComponent entry = getEntryByTypeAndId(bundle, resourceType, id, fullurl);
+
+				Resource resource = entry != null ? entry.getResource() : null;
 
 				if (resource instanceof Organization) {
 
@@ -335,14 +310,13 @@ public class AnonymizerService {
 
 		Narrative narrative = new Narrative();
 		narrative.setStatus(Narrative.NarrativeStatus.EMPTY);
-        narrative.setDivAsString("<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>MASKED</p></div>");
-
+		narrative.setDivAsString("<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>MASKED</p></div>");
 
 		dataAbsentReasonExtension.setUrl("http://hl7.org/fhir/StructureDefinition/data-absent-reason");
 		dataAbsentReasonExtension.setValue(new CodeType("masked"));
-		
+
 		narrative.addExtension(dataAbsentReasonExtension);
-		
+
 		section.setText(narrative);
 
 		section.setEntry(references);
@@ -420,7 +394,7 @@ public class AnonymizerService {
 
 		return prefix + "_" + UUID.randomUUID().toString() + ".xml";
 	}
-	
+
 	public static String getGuid() {
 		return java.util.UUID.randomUUID().toString();
 	}
@@ -430,30 +404,33 @@ public class AnonymizerService {
 			Identifier identifier = eicrBundle.getIdentifier();
 			identifier.setValue("urn:uuid:" + getGuid());
 		}
-	}	
-	
-	
-	public JsonNode filterCustomResource(BundleEntryComponent entry, String resourceJson, List<Map<String, Object>> allCustodianOrganization,
-			List<Map<String, Object>> getAllEmployerList, IParser jsonParser, FilterDataService filterDataService) throws IOException {
+	}
+
+	public JsonNode filterCustomResource(BundleEntryComponent entry, String resourceJson,
+			List<Map<String, Object>> allCustodianOrganization, List<Map<String, Object>> getAllEmployerList,
+			IParser jsonParser, FilterDataService filterDataService) throws IOException {
 
 		Resource resource = entry.getResource();
 		JsonNode updatedResource = null;
 
 		if (resource instanceof Organization) {
-			if (isResourceInList(entry, "Organization", allCustodianOrganization)) {
+			/*
+			 * if (isResourceInList(entry, "Organization", allCustodianOrganization)) {
+			 * 
+			 * updatedResource = processResource(entry.getResource(), "anon_organization",
+			 * jsonParser,filterDataService, "custodianOrganization");}
+			 */
 
-				updatedResource = processResource(entry.getResource(), "anon_organization", jsonParser,filterDataService,
-						"custodianOrganization");
+			if (isResourceInList(entry, "Organization", getAllEmployerList)) {
 
-			} else if (isResourceInList(entry, "Organization", getAllEmployerList)) {
-
-				updatedResource = processResource(entry.getResource(), "anon_organization", jsonParser,filterDataService,
-						"odh_organization");
+				updatedResource = processResource(entry.getResource(), "anon_organization", jsonParser,
+						filterDataService, "odh_organization");
 			}
 		} else if (resource instanceof RelatedPerson) {
 			if (isResourceInList(entry, "RelatedPerson", getAllEmployerList)) {
 
-				updatedResource = processResource(entry.getResource(), "relatedperson", jsonParser,filterDataService, "odh_employer");
+				updatedResource = processResource(entry.getResource(), "relatedperson", jsonParser, filterDataService,
+						"odh_employer");
 
 			}
 		}
@@ -469,8 +446,9 @@ public class AnonymizerService {
 			return false;
 		}
 
-		String resourceId = resource.hasIdElement()
-				&& resource.getIdElement().hasIdPart() ? resource.getIdElement().getIdPart():null;
+		String resourceId = resource.hasIdElement() && resource.getIdElement().hasIdPart()
+				? resource.getIdElement().getIdPart()
+				: null;
 		String entryFullUrl = entryComponent.hasFullUrl() ? entryComponent.getFullUrl() : null;
 
 		for (Map<String, Object> resourceMap : resourceList) {
@@ -486,7 +464,7 @@ public class AnonymizerService {
 
 		return false;
 	}
-	
+
 	public List<Map<String, Object>> getAllCustodianOrganization(Bundle eicrBundle) {
 		List<Map<String, Object>> custodainOrganizationList = new ArrayList<>();
 		Composition eicrComposition = (Composition) getResourceByType(eicrBundle, "Composition");
@@ -496,7 +474,7 @@ public class AnonymizerService {
 
 		return custodainOrganizationList;
 	}
-	
+
 	public List<Map<String, Object>> getallOdhObsEmployerList(Bundle bundle) {
 		List<Map<String, Object>> odhList = new ArrayList<>();
 
@@ -530,6 +508,7 @@ public class AnonymizerService {
 
 		return odhList;
 	}
+
 	public void processReferences(Bundle bundle, List<Reference> references, List<Map<String, Object>> resourceList) {
 		for (Reference reference : references) {
 			if (reference.hasReferenceElement() && reference.getReferenceElement().hasIdPart()) {
@@ -539,7 +518,9 @@ public class AnonymizerService {
 				String id = reference.getReferenceElement().getIdPart();
 
 				IIdType fullurl = reference.getReferenceElement();
-				Resource resource = getResourceByTypeAndId(bundle, resourceType, id, fullurl);
+				BundleEntryComponent entry = getEntryByTypeAndId(bundle, resourceType, id, fullurl);
+
+				Resource resource = entry != null ? entry.getResource() : null;
 
 				if (resource != null) {
 					Map<String, Object> resourceMap = new HashMap<>();
@@ -553,9 +534,7 @@ public class AnonymizerService {
 
 		}
 	}
-	
-	
-	
+
 	@SuppressWarnings("unchecked")
 	private Map<String, Object> getAnonymizerProfileConfig() {
 		if (ecrAnonymizerProfileConfigMap == null) {
@@ -573,17 +552,17 @@ public class AnonymizerService {
 		}
 	}
 
-	private JsonNode processResource(Resource resource, String type, IParser jsonParser, FilterDataService filterDataService, String filterKey)
-			throws IOException {
+	private JsonNode processResource(Resource resource, String type, IParser jsonParser,
+			FilterDataService filterDataService, String filterKey) throws IOException {
 		addProfile(resource, type);
 		String resourceJson = jsonParser.encodeResourceToString(resource);
 		return filterDataService.processJson(resourceJson, null, filterKey);
 	}
 
 	public void addProfile(IBaseResource ibaseResource, String type) {
-		
-		type=type!=null?type.toLowerCase():null;
-	
+
+		type = type != null ? type.toLowerCase() : null;
+
 		String profile = (String) ecrAnonymizerProfileConfigMap.getOrDefault(type, "");
 		if (!profile.isEmpty()) {
 			if (ibaseResource instanceof Resource) {
@@ -605,6 +584,84 @@ public class AnonymizerService {
 		return meta;
 
 	}
-	
-	
+
+	public void removeAllContactExposure(Bundle bundle) {
+		List<String> actClassCodes = Arrays.asList("EXPOS", "AEXPOS", "TEXPOS");
+		List<BundleEntryComponent> exposureContactInfoList = new ArrayList<>();
+
+		List<Reference> exposureContactInfoRefEntryList = new ArrayList<>();
+		Composition eicrComposition = (Composition) getResourceByType(bundle, "Composition");
+
+		SectionComponent socialHistorySection = null;
+		if (eicrComposition != null) {
+			socialHistorySection = findSectionByCode(eicrComposition.getSection(), "29762-2", LOINC_URL);
+		}
+
+		if (socialHistorySection != null) {
+			Iterator<Reference> refIterator = socialHistorySection.getEntry().iterator();
+			while (refIterator.hasNext()) {
+				Reference reference = refIterator.next();
+
+				if (reference.hasReferenceElement() && reference.getReferenceElement().hasIdPart()) {
+					String resourceType = reference.getReferenceElement().getResourceType();
+					String id = reference.getReferenceElement().getIdPart();
+
+					BundleEntryComponent entry = getEntryByTypeAndId(bundle, resourceType, id,
+							reference.getReferenceElement());
+
+					Resource resource = entry != null ? entry.getResource() : null;
+
+					if (resource instanceof Observation) {
+						Observation observation = (Observation) resource;
+						if (containsActClassCode(observation, actClassCodes)) {
+							exposureContactInfoRefEntryList.add(reference);
+							exposureContactInfoList.add(entry);
+						}
+					}
+				}
+			}
+
+			socialHistorySection.getEntry().removeAll(exposureContactInfoRefEntryList);
+			bundle.getEntry().removeAll(exposureContactInfoList);
+		}
+
+	}
+
+	private boolean containsActClassCode(Observation observation, List<String> actClassCodes) {
+		for (CodeableConcept category : observation.getCategory()) {
+			for (Coding coding : category.getCoding()) {
+				if ("http://terminology.hl7.org/CodeSystem/v3-ActClass".equals(coding.getSystem())
+						&& actClassCodes.contains(coding.getCode())) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	public BundleEntryComponent getEntryByTypeAndId(Bundle bundle, String resourceType, String id, IIdType fullurl) {
+
+		// Iterate through the entries in the bundle
+		for (BundleEntryComponent entry : bundle.getEntry()) {
+			Resource resource = entry.getResource();
+
+			if (resource.getResourceType().toString().equals(resourceType) && resource.hasIdElement()
+					&& resource.getIdElement().hasIdPart() && resource.getIdElement().getIdPart().equals(id)) {
+
+				return entry;
+			} else if (resource.hasIdElement() && resource.getIdElement().hasIdPart()
+					&& resource.getIdElement().getIdPart().equals(id)) {
+				return entry;
+			} else if (fullurl != null && entry.hasFullUrl()) {
+				String entryFullUrl = entry.getFullUrl();
+				String fullUrlString = fullurl.getValue();
+				if (entryFullUrl.equals(fullUrlString)) {
+					return entry;
+				}
+			}
+		}
+
+		return null;
+
+	}
 }
