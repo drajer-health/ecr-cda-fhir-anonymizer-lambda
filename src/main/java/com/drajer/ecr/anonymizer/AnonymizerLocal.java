@@ -137,12 +137,18 @@ public class AnonymizerLocal {
 			File xsltFile = ResourceUtils
 					.getFile("classpath:hl7-xml-transforms/transforms/cda2fhir-r4/NativeUUIDGen-cda2fhir.xslt");
 
+			System.out.println("Before Transformation OUTPUT"+"at time location  " + new Date());
+			
+			System.out.println("Before Transformation ------------------");
+			
 			System.out.println("--- Before Transformation XSLT---::" + xsltFile.getAbsolutePath());
 			System.out.println("--- Before Transformation OUTPUT---::" + outputFile.getAbsolutePath());
 			System.out.println("--- Before Transformation UUID---::" + randomUUID);
+			
 
 			xsltTransformation(xsltFile.getAbsolutePath(), outputFile.getAbsolutePath(), randomUUID);
 
+			System.out.println("After Transformation OUTPUT"+"at time location  " + new Date());
 			String responseXML = getFileContentAsStringLocal(randomUUID);
 
 			String fileName = key;
@@ -161,12 +167,15 @@ public class AnonymizerLocal {
 				System.out.println("Output not generated check logs ");
 			} else {
 				System.out.println("Writing FHIR output file " + fileName);
+				System.out.println("Writing FHIR  file" + fileName+"at time location " + new Date());
 				writeFileLocal(responseXML, fileName);
 				System.out.println("FHIR Output Generated  " + fileName);
+				System.out.println("Writing Output  file" + fileName+"at time location " + new Date());
 			}
 			if (addAgeObservationEntry) {
 				responseXML = addAgeObservationBundleEntry(responseXML);
 			}
+			
 			AnonymizerService anonymizerService = new AnonymizerService();
 			return anonymizerService.processBundleXml(responseXML, metaDataMap);
 		} catch (Exception e) {
