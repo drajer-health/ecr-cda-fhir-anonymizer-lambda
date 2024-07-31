@@ -91,7 +91,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 
 	public  AnonymizerLambdaFunctionHandler(Context context) throws IOException {
 		context.getLogger().log("Loading  processor and Transformer");
-		String bucketName = System.getenv("S3_BUCKET_NAME");
+		String bucketName = System.getenv("BUCKET_NAME");
 		if (bucketName == null || bucketName.isEmpty()) {
 			throw new IllegalArgumentException("S3 bucket name is not set in the environment variables.");
 		}
