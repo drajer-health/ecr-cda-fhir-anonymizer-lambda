@@ -77,32 +77,30 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 	private XsltTransformer transformer;
 	private Processor processor;
 
-	public static AnonymizerLambdaFunctionHandler getInstance(Context context) throws IOException {
+	public static AnonymizerLambdaFunctionHandler getInstance() throws IOException {
 		if (instance == null) {
 
 			synchronized (AnonymizerLambdaFunctionHandler.class) {
 				if (instance == null) {
-					instance = new AnonymizerLambdaFunctionHandler(context);
+					instance = new AnonymizerLambdaFunctionHandler();
 				}
 			}
 		}
 		return instance;
 	}
 
-	public  AnonymizerLambdaFunctionHandler(Context context) throws IOException {
-		context.getLogger().log("Loading  processor and Transformer");
+	public AnonymizerLambdaFunctionHandler() throws IOException {
 		String bucketName = System.getenv("BUCKET_NAME");
 		if (bucketName == null || bucketName.isEmpty()) {
 			throw new IllegalArgumentException("S3 bucket name is not set in the environment variables.");
 		}
 
 		// Load the Saxon processor and transformer
-		this.processor = createSaxonProcessor(bucketName,context);
-		this.transformer = initializeTransformer(context);
+		this.processor = createSaxonProcessor(bucketName);
+		this.transformer = initializeTransformer();
 	}
 
-	private Processor createSaxonProcessor(String bucketName, Context context) throws IOException {
-		context.getLogger().log("Loading  Saxon Processor");
+	private Processor createSaxonProcessor(String bucketName) throws IOException {
 		String licenseFilePath = "/saxon_license/saxon-license.lic"; // Ensure temp path is used
 		EnterpriseConfiguration configuration = new EnterpriseConfiguration();
 		String key = "license/saxon-license.lic";
@@ -139,9 +137,8 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		return new Processor(configuration);
 	}
 
-	private XsltTransformer initializeTransformer(Context context) {
+	private XsltTransformer initializeTransformer() {
 		try {
-			context.getLogger().log("Loading tranformer Processor");
 			File xsltFile = ResourceUtils
 					.getFile("classpath:hl7-xml-transforms/transforms/cda2fhir-r4/NativeUUIDGen-cda2fhir.xslt");
 			processor.setConfigurationProperty(FeatureKeys.ALLOW_MULTITHREADING, true);
@@ -155,7 +152,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		}
 	}
 
-	public void transform(File sourceXml, UUID outputFileName,Context context) {
+	public void transform(File sourceXml, UUID outputFileName, Context context) {
 		try {
 			Source source = new StreamSource(sourceXml);
 			Path outputPath = Paths.get("/tmp", outputFileName.toString() + ".xml");
@@ -187,7 +184,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		String key = null;
 		String bucket = null;
 		try {
-			AnonymizerLambdaFunctionHandler handler = AnonymizerLambdaFunctionHandler.getInstance(context);
+			AnonymizerLambdaFunctionHandler handler = AnonymizerLambdaFunctionHandler.getInstance();
 			SQSMessage message = event.getRecords().get(0);
 			String messageBody = message.getBody();
 			S3EventNotification s3EventNotification = S3EventNotification.parseJson(messageBody);
@@ -254,7 +251,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 
 	private Bundle processEvent(String bucket, String key, Context context, Map<String, Object> metaDataMap,
 			boolean addAgeObservationEntry) throws Exception {
-		instance = AnonymizerLambdaFunctionHandler.getInstance(context);
+		instance = AnonymizerLambdaFunctionHandler.getInstance();
 		InputStream input = null;
 		File outputFile = null;
 		String keyFileName = "";
@@ -307,7 +304,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			context.getLogger().log("--- Before Transformation OUTPUT---::" + outputFile.getAbsolutePath());
 			context.getLogger().log("--- Before Transformation UUID---::" + randomUUID);
 
-			instance.transform(outputFile, randomUUID,context);
+			instance.transform(outputFile, randomUUID, context);
 
 			String responseXML = getFileContentAsString(randomUUID, context);
 
