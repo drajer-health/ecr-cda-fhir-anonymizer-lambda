@@ -6,10 +6,10 @@
 	<artifactId>ecr-cda-fhir-anonymizer-lambda</artifactId>
 	<version>1.0.13</version>
 	<packaging>jar</packaging>
-    <properties>
-        <fhir.version>5.4.0</fhir.version>
-        <fhirpath.version>5.4.0</fhirpath.version>
-    </properties>
+	<properties>
+		<fhir.version>5.4.0</fhir.version>
+		<fhirpath.version>5.4.0</fhirpath.version>
+	</properties>
 	<build>
 		<plugins>
 			<plugin>
@@ -21,6 +21,7 @@
 					<target>1.8</target>
 					<encoding>UTF-8</encoding>
 					<forceJavacCompilerUse>true</forceJavacCompilerUse>
+					<includeSystemScope>true</includeSystemScope>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -40,7 +41,8 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>2.19.1</version>
-	        </plugin>
+			</plugin>
+			
 		</plugins>
 	</build>
 
@@ -72,16 +74,16 @@
 					<artifactId>jackson-dataformat-cbor</artifactId>
 				</exclusion>
 				<exclusion>
-				    <groupId>software.amazon.ion</groupId>
-				    <artifactId>ion-java</artifactId>
-				</exclusion>				
+					<groupId>software.amazon.ion</groupId>
+					<artifactId>ion-java</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.dataformat</groupId>
 			<artifactId>jackson-dataformat-cbor</artifactId>
 			<version>2.17.1</version>
-		</dependency>		
+		</dependency>
 		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-lambda-java-events</artifactId>
@@ -92,25 +94,31 @@
 			<artifactId>aws-lambda-java-core</artifactId>
 			<version>1.1.0</version>
 		</dependency>
+
 		<dependency>
 			<groupId>net.sf.saxon</groupId>
-			<artifactId>Saxon-HE</artifactId>
-			<version>11.2</version>
+			<artifactId>saxon-ee</artifactId>
+			<version>12.5</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/libs/saxon-ee-12.5.jar</systemPath>
 		</dependency>
+
+
+
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-core</artifactId>
 			<version>5.3.14</version>
 		</dependency>
-        <dependency>
-            <groupId>ca.uhn.hapi.fhir</groupId>
-            <artifactId>hapi-fhir-base</artifactId>
-            <version>${fhir.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>ca.uhn.hapi.fhir</groupId>
-            <artifactId>hapi-fhir-structures-r4</artifactId>
-            <version>${fhir.version}</version>
-        </dependency>	
+		<dependency>
+			<groupId>ca.uhn.hapi.fhir</groupId>
+			<artifactId>hapi-fhir-base</artifactId>
+			<version>${fhir.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>ca.uhn.hapi.fhir</groupId>
+			<artifactId>hapi-fhir-structures-r4</artifactId>
+			<version>${fhir.version}</version>
+		</dependency>
 	</dependencies>
 </project>
