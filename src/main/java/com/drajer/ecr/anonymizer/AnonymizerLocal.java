@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.Period;
@@ -19,38 +20,123 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.xml.transform.Source;
+import javax.xml.transform.stream.StreamSource;
+
 import org.apache.commons.io.IOUtils;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Composition;
+import org.hl7.fhir.r4.model.Composition.SectionComponent;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DateType;
+import org.hl7.fhir.r4.model.Enumerations.ResourceType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Quantity;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
-import org.hl7.fhir.r4.model.Composition.SectionComponent;
-import org.hl7.fhir.r4.model.Enumerations.ResourceType;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.ResourceUtils;
 
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.util.StringUtils;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saxonica.config.EnterpriseConfiguration;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
-import net.sf.saxon.Transform;
+import net.sf.saxon.lib.FeatureKeys;
+import net.sf.saxon.s9api.Processor;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.Serializer;
+import net.sf.saxon.s9api.XsltCompiler;
+import net.sf.saxon.s9api.XsltExecutable;
+import net.sf.saxon.s9api.XsltTransformer;
 
 public class AnonymizerLocal {
 
-	private String destPath = "D://ecr-anonymizer";
+	private static final String DEST_PATH = "D://ecr-anonymizer";
 	public static final int DEFAULT_BUFFER_SIZE = 8192;
 	private static final String LOINC_URL = "http://loinc.org";
+
+	private static AnonymizerLocal instance;
+	private XsltTransformer transformer;
+	private Processor processor;
+
+	private AnonymizerLocal() throws IOException {
+		this.processor = createSaxonProcessor();
+		this.transformer = initializeTransformer();
+	}
+
+	public static AnonymizerLocal getInstance() {
+		if (instance == null) {
+			synchronized (AnonymizerLocal.class) {
+				if (instance == null) {
+					try {
+						instance = new AnonymizerLocal();
+					} catch (IOException e) {
+						throw new RuntimeException("Failed to initialize AnonymizerLocal", e);
+					}
+				}
+			}
+		}
+		return instance;
+	}
+
+	private Processor createSaxonProcessor() throws IOException {
+		EnterpriseConfiguration configuration = new EnterpriseConfiguration();
+		String licenseFilePath = new ClassPathResource("saxon-license.lic").getFile().getAbsolutePath();
+		System.setProperty("http://saxon.sf.net/feature/licenseFileLocation", licenseFilePath);
+
+		configuration.setConfigurationProperty(FeatureKeys.LICENSE_FILE_LOCATION, licenseFilePath);
+
+		return new Processor(configuration);
+	}
+
+	private XsltTransformer initializeTransformer() {
+		try {
+			File xsltFile = ResourceUtils
+					.getFile("classpath:hl7-xml-transforms/transforms/cda2fhir-r4/NativeUUIDGen-cda2fhir.xslt");
+			processor.setConfigurationProperty(FeatureKeys.ALLOW_MULTITHREADING, true);
+			XsltCompiler compiler = processor.newXsltCompiler();
+
+			compiler.setJustInTimeCompilation(true);
+			XsltExecutable executable = compiler.compile(new StreamSource(xsltFile));
+			return executable.load();
+		} catch (SaxonApiException | IOException e) {
+			throw new RuntimeException("Failed to initialize XSLT Transformer", e);
+		}
+	}
+
+	public void transform(File sourceXml, UUID outputFileName) {
+		try {
+			Source source = new StreamSource(sourceXml);
+			Path outputPath = Paths.get("/tmp", outputFileName.toString() + ".xml");
+			Files.createDirectories(outputPath.getParent());
+
+			Serializer out = processor.newSerializer(outputPath.toFile());
+			out.setOutputProperty(Serializer.Property.METHOD, "xml");
+
+			transformer.setSource(source);
+			transformer.setDestination(out);
+			transformer.transform();
+
+			System.out.println("Transformation complete. Output saved to: " + outputPath);
+		} catch (SaxonApiException e) {
+			System.err.println("ERROR: Transformation failed with exception: " + e.getMessage());
+		} catch (IOException e) {
+			System.err.println("ERROR: Failed to create output directory or file: " + e.getMessage());
+		} catch (Exception e) {
+			System.err.println("ERROR: Unexpected error occurred: " + e.getMessage());
+		}
+	}
 
 	public static void main(String[] args) {
 
@@ -73,28 +159,29 @@ public class AnonymizerLocal {
 
 			System.out.println("Start time RR ::" + new Date());
 
-			Bundle rrBundle = processEvent(rrKey,metaDataMap,false);
+			Bundle rrBundle = processEvent(rrKey, metaDataMap, false);
 			System.out.println("End Time RR ::" + new Date());
 
 			System.out.println("Start time EICR ::" + new Date());
-			Bundle eicrBundle = processEvent(eicrDataFileName, metaDataMap,true);
+			Bundle eicrBundle = processEvent(eicrDataFileName, metaDataMap, true);
 			System.out.println("End Time EICR ::" + new Date());
 			System.out.println("metaDataMap toString : " + metaDataMap.toString());
 
 			AnonymizerService anonymizerService = new AnonymizerService();
-			Bundle eicrRRBundle = anonymizerService.addReportabilityResponseInformationSection(eicrBundle, rrBundle, metaDataMap);
+			Bundle eicrRRBundle = anonymizerService.addReportabilityResponseInformationSection(eicrBundle, rrBundle,
+					metaDataMap);
 
-			String uniqueFilename = "OUTPUT-"+ eicrDataFileName;
+			String uniqueFilename = "OUTPUT-" + eicrDataFileName;
 			IParser parser = FhirContext.forR4().newXmlParser();
 
 			String processedDataBundleXml = parser.setPrettyPrint(true).encodeResourceToString(eicrRRBundle);
 
-			System.out.println("Anonymizer file name : "+uniqueFilename);
+			System.out.println("Anonymizer file name : " + uniqueFilename);
 
 			if (StringUtils.isNullOrEmpty(processedDataBundleXml)) {
 				System.out.println("Output not generated check logs ");
 			} else {
-				System.out.println("Writing output file "+uniqueFilename);
+				System.out.println("Writing output file " + uniqueFilename);
 				writeFileLocal(processedDataBundleXml, uniqueFilename);
 				System.out.println("Output Generated  " + uniqueFilename);
 			}
@@ -105,7 +192,10 @@ public class AnonymizerLocal {
 
 	}
 
-	private static Bundle processEvent(String key, Map<String, Object> metaDataMap,boolean addAgeObservationEntry) throws Exception{
+	private static Bundle processEvent(String key, Map<String, Object> metaDataMap, boolean addAgeObservationEntry)
+			throws Exception {
+
+		AnonymizerLocal anonymizerLocal = AnonymizerLocal.getInstance();
 		InputStream input = null;
 		File outputFile = null;
 		try {
@@ -134,21 +224,22 @@ public class AnonymizerLocal {
 
 			UUID randomUUID = UUID.randomUUID();
 //			File xsltFile = ResourceUtils.getFile("classpath:hl7-xml-transforms/transforms/cda2fhir-r4/cda2fhir.xslt");
-			File xsltFile = ResourceUtils
-					.getFile("classpath:hl7-xml-transforms/transforms/cda2fhir-r4/NativeUUIDGen-cda2fhir.xslt");
+//			File xsltFile = ResourceUtils
+//					.getFile("classpath:hl7-xml-transforms/transforms/cda2fhir-r4/NativeUUIDGen-cda2fhir.xslt");
 
-			System.out.println("Before Transformation OUTPUT"+"at time location  " + new Date());
-			
+			System.out.println("Before Transformation OUTPUT" + "at time location  " + new Date());
+
 			System.out.println("Before Transformation ------------------");
-			
-			System.out.println("--- Before Transformation XSLT---::" + xsltFile.getAbsolutePath());
+
+//			System.out.println("--- Before Transformation XSLT---::" + xsltFile.getAbsolutePath());
 			System.out.println("--- Before Transformation OUTPUT---::" + outputFile.getAbsolutePath());
 			System.out.println("--- Before Transformation UUID---::" + randomUUID);
-			
 
-			xsltTransformation(xsltFile.getAbsolutePath(), outputFile.getAbsolutePath(), randomUUID);
+			anonymizerLocal.transform(outputFile, randomUUID);
+			// xsltTransformation(xsltFile.getAbsolutePath(), outputFile.getAbsolutePath(),
+			// randomUUID);
 
-			System.out.println("After Transformation OUTPUT"+"at time location  " + new Date());
+			System.out.println("After Transformation OUTPUT" + "at time location  " + new Date());
 			String responseXML = getFileContentAsStringLocal(randomUUID);
 
 			String fileName = key;
@@ -167,41 +258,44 @@ public class AnonymizerLocal {
 				System.out.println("Output not generated check logs ");
 			} else {
 				System.out.println("Writing FHIR output file " + fileName);
-				System.out.println("Writing FHIR  file" + fileName+"at time location " + new Date());
+				System.out.println("Writing FHIR  file" + fileName + "at time location " + new Date());
 				writeFileLocal(responseXML, fileName);
 				System.out.println("FHIR Output Generated  " + fileName);
-				System.out.println("Writing Output  file" + fileName+"at time location " + new Date());
+				System.out.println("Writing Output  file" + fileName + "at time location " + new Date());
 			}
 			if (addAgeObservationEntry) {
 				responseXML = addAgeObservationBundleEntry(responseXML);
 			}
-			
+
 			AnonymizerService anonymizerService = new AnonymizerService();
 			return anonymizerService.processBundleXml(responseXML, metaDataMap);
 		} catch (Exception e) {
-			System.out.println("Error ::::"+e.getMessage());
+			System.out.println("Error ::::" + e.getMessage());
 			e.printStackTrace();
-			throw new RuntimeException ("Error:  ",e);
+			throw new RuntimeException("Error:  ", e);
 		} finally {
 			try {
 				input.close();
-			} catch (Exception e) {}
+			} catch (Exception e) {
+			}
+		}
 	}
-	}
+
 	public static void xsltTransformation(String xslFilePath, String sourceXml, UUID outputFileName) {
 
 		try {
 
-			String[] commandLineArguments = new String[3];
-
-			commandLineArguments[0] = "-xsl:" + xslFilePath;
-			commandLineArguments[1] = "-s:" + sourceXml;
-			// commandLineArguments[2] = "-license:on";
-			commandLineArguments[2] = "-o:" + "/tmp/" + outputFileName + ".xml";
-
-			Transform.main(commandLineArguments);
-
-			System.out.println("Transformation Complete");
+//			String[] commandLineArguments = new String[3];
+//
+//			commandLineArguments[0] = "-xsl:" + xslFilePath;
+//			commandLineArguments[1] = "-s:" + sourceXml;
+//			// commandLineArguments[2] = "-license:on";
+//			commandLineArguments[2] = "-o:" + "/tmp/" + outputFileName + ".xml";
+//
+//			Transform.main(commandLineArguments);
+//			
+//
+//			System.out.println("Transformation Complete");
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -253,53 +347,54 @@ public class AnonymizerLocal {
 			e.printStackTrace();
 		}
 	}
+
 	public static String addAgeObservationBundleEntry(String bundleXml) {
 		IParser xmlParser = FhirContext.forR4().newXmlParser();
-		
+
 		AnonymizerService anonymizerService = new AnonymizerService();
 
-			try {
-				Bundle bundle = xmlParser.parseResource(Bundle.class, bundleXml);
+		try {
+			Bundle bundle = xmlParser.parseResource(Bundle.class, bundleXml);
 
-				Composition eicrComposition = (Composition) anonymizerService.getResourceByType(bundle, "Composition");
-				SectionComponent socialHistorySection = null;
-				if (eicrComposition != null) {
-					List<SectionComponent> section = eicrComposition.getSection();
+			Composition eicrComposition = (Composition) anonymizerService.getResourceByType(bundle, "Composition");
+			SectionComponent socialHistorySection = null;
+			if (eicrComposition != null) {
+				List<SectionComponent> section = eicrComposition.getSection();
 
-					socialHistorySection = anonymizerService.findSectionByCode(section, "29762-2", LOINC_URL);
-				}
+				socialHistorySection = anonymizerService.findSectionByCode(section, "29762-2", LOINC_URL);
+			}
 
-				BundleEntryComponent patientEntry = getBundleEntryByType(bundle, ResourceType.PATIENT.toCode());
-				Patient patient = patientEntry != null ? (Patient) patientEntry.getResource() : null;
+			BundleEntryComponent patientEntry = getBundleEntryByType(bundle, ResourceType.PATIENT.toCode());
+			Patient patient = patientEntry != null ? (Patient) patientEntry.getResource() : null;
 
-				if (patient != null && patient.hasBirthDateElement()) {
-					BundleEntryComponent observationEntry = new BundleEntryComponent();
-					observationEntry.setFullUrl("urn:uuid:" + getGuid());
-					Observation ageObservation = createAgeObservationResource(patient, patientEntry.getFullUrl());
-					anonymizerService.addProfile(ageObservation, "caculated-age");
-					observationEntry.setResource(ageObservation);
-					bundle.addEntry(observationEntry);
+			if (patient != null && patient.hasBirthDateElement()) {
+				BundleEntryComponent observationEntry = new BundleEntryComponent();
+				observationEntry.setFullUrl("urn:uuid:" + getGuid());
+				Observation ageObservation = createAgeObservationResource(patient, patientEntry.getFullUrl());
+				anonymizerService.addProfile(ageObservation, "caculated-age");
+				observationEntry.setResource(ageObservation);
+				bundle.addEntry(observationEntry);
 
-					if (socialHistorySection != null) {
-						Reference reference = new Reference();
+				if (socialHistorySection != null) {
+					Reference reference = new Reference();
 
-						reference.setReference(observationEntry.getFullUrl());
-						reference.setDisplay(null);
-						if (!socialHistorySection.hasEntry()) {
-							socialHistorySection.setEntry(new ArrayList<>());
-						}
-						socialHistorySection.getEntry().add(reference);
+					reference.setReference(observationEntry.getFullUrl());
+					reference.setDisplay(null);
+					if (!socialHistorySection.hasEntry()) {
+						socialHistorySection.setEntry(new ArrayList<>());
 					}
+					socialHistorySection.getEntry().add(reference);
 				}
+			}
 
-				return xmlParser.setPrettyPrint(true).encodeResourceToString(bundle);
+			return xmlParser.setPrettyPrint(true).encodeResourceToString(bundle);
 
 		} catch (DataFormatException e) {
 			String errorMessage = "Failed to parse XML: " + e.getMessage();
-			throw new RuntimeException( errorMessage, e);
+			throw new RuntimeException(errorMessage, e);
 		} catch (Exception e) {
 			String errorMessage = "An unexpected error occurred while processing the XML bundle: " + e.getMessage();
-			throw new RuntimeException( errorMessage, e);
+			throw new RuntimeException(errorMessage, e);
 		}
 	}
 
@@ -358,5 +453,38 @@ public class AnonymizerLocal {
 		LocalDate birthLocalDate = birthDate.getValueAsCalendar().toInstant().atZone(java.time.ZoneId.systemDefault())
 				.toLocalDate();
 		return Period.between(birthLocalDate, LocalDate.now()).getYears();
+	}
+
+	public void xsltTransformation1(String xslFilePath, String sourceXml, UUID outputFileName) {
+		try {
+			// Initialize the Saxon processor
+			Processor processor = new Processor(false);
+			XsltCompiler compiler = processor.newXsltCompiler();
+
+			// Compile the XSLT file
+			XsltExecutable executable = compiler.compile(new StreamSource(new File(xslFilePath)));
+
+			// Set up the source and destination for the transformation
+			Source source = new StreamSource(new File(sourceXml));
+			Path outputPath = Paths.get("/tmp", outputFileName.toString() + ".xml");
+			Files.createDirectories(outputPath.getParent()); // Ensure the directory exists
+			Serializer out = processor.newSerializer(outputPath.toFile());
+			out.setOutputProperty(Serializer.Property.METHOD, "xml");
+
+			// Perform the transformation
+			XsltTransformer transformer = executable.load();
+			transformer.setSource(source);
+			transformer.setDestination(out);
+			transformer.transform();
+
+			System.out.println("Transformation complete. Output saved to: " + outputPath.toString());
+
+		} catch (SaxonApiException e) {
+			e.printStackTrace();
+			System.out.println("ERROR: Transformation failed with exception: " + e.getMessage());
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.out.println("ERROR: Unexpected error occurred: " + e.getMessage());
+		}
 	}
 }
