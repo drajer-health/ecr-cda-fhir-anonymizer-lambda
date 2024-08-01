@@ -10,8 +10,114 @@
 		<fhir.version>5.4.0</fhir.version>
 		<fhirpath.version>5.4.0</fhirpath.version>
 	</properties>
+
 	<build>
 		<plugins>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-install-plugin</artifactId>
+				<executions>
+					<!-- Saxon EE -->
+					<execution>
+						<id>saxon-ee</id>
+						<phase>clean</phase>
+						<configuration>
+							<file>${basedir}/libs/saxon-ee-12.5.jar</file>
+							<groupId>net.sf.saxon</groupId>
+							<artifactId>saxon-ee</artifactId>
+							<version>12.5</version>
+							<packaging>jar</packaging>
+							<generatePom>true</generatePom>
+						</configuration>
+						<goals>
+							<goal>install-file</goal>
+						</goals>
+					</execution>
+					<!-- Saxon EE Test -->
+					<execution>
+						<id>saxon-ee-test</id>
+						<phase>clean</phase>
+						<goals>
+							<goal>install-file</goal>
+						</goals>
+						<configuration>
+							<file>${basedir}/libs/saxon-ee-test-12.5.jar</file>
+							<groupId>net.sf.saxon</groupId>
+							<artifactId>saxon-ee-test</artifactId>
+							<version>12.5</version>
+							<packaging>jar</packaging>
+							<generatePom>true</generatePom>
+						</configuration>
+					</execution>
+					<!-- XML Resolver -->
+					<execution>
+						<id>xmlresolver</id>
+						<phase>clean</phase>
+						<goals>
+							<goal>install-file</goal>
+						</goals>
+						<configuration>
+							<file>${basedir}/libs/xmlresolver-5.2.2.jar</file>
+							<groupId>net.sf.saxon</groupId>
+							<artifactId>xmlresolver</artifactId>
+							<version>5.2.2</version>
+							<packaging>jar</packaging>
+							<generatePom>true</generatePom>
+						</configuration>
+					</execution>
+					<!-- XML Resolver Data -->
+					<execution>
+						<id>xmlresolver-data</id>
+						<phase>clean</phase>
+						<goals>
+							<goal>install-file</goal>
+						</goals>
+						<configuration>
+							<file>${basedir}/libs/xmlresolver-5.2.2-data.jar</file>
+							<groupId>net.sf.saxon</groupId>
+							<artifactId>xmlresolver</artifactId>
+							<version>5.2.2</version>
+							<classifier>data</classifier>
+							<packaging>jar</packaging>
+							<generatePom>true</generatePom>
+						</configuration>
+					</execution>
+					<!-- JLine -->
+					<execution>
+						<id>jline</id>
+						<phase>clean</phase>
+						<goals>
+							<goal>install-file</goal>
+						</goals>
+						<configuration>
+							<file>${basedir}/libs/jline-2.14.6.jar</file>
+							<groupId>net.sf.saxon</groupId>
+							<artifactId>jline</artifactId>
+							<version>2.14.6</version>
+							<packaging>jar</packaging>
+							<generatePom>true</generatePom>
+						</configuration>
+					</execution>
+					<!-- ICU4J -->
+					<execution>
+						<id>icu4j</id>
+						<phase>clean</phase>
+						<goals>
+							<goal>install-file</goal>
+						</goals>
+						<configuration>
+							<file>${basedir}/libs/icu4j-72.1.jar</file>
+							<groupId>net.sf.saxon</groupId>
+							<artifactId>icu4j</artifactId>
+							<version>72.1</version>
+							<packaging>jar</packaging>
+							<generatePom>true</generatePom>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -24,27 +130,29 @@
 					<includeSystemScope>true</includeSystemScope>
 				</configuration>
 			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
-				<version>3.0.0</version>
+				<version>3.4.1</version>
 				<executions>
 					<execution>
 						<phase>package</phase>
 						<goals>
 							<goal>shade</goal>
 						</goals>
+						<configuration>
+							<createDependencyReducedPom>false</createDependencyReducedPom>
+						</configuration>
 					</execution>
 				</executions>
-
 			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>2.19.1</version>
-
 			</plugin>
-
 		</plugins>
 	</build>
 
@@ -96,60 +204,39 @@
 			<artifactId>aws-lambda-java-core</artifactId>
 			<version>1.1.0</version>
 		</dependency>
-
 		<dependency>
 			<groupId>net.sf.saxon</groupId>
 			<artifactId>saxon-ee</artifactId>
 			<version>12.5</version>
-			<scope>system</scope>
-			<systemPath>${basedir}/libs/saxon-ee-12.5.jar</systemPath>
 		</dependency>
-
 		<dependency>
 			<groupId>net.sf.saxon</groupId>
 			<artifactId>saxon-ee-test</artifactId>
 			<version>12.5</version>
-			<scope>system</scope>
-			<systemPath>${basedir}/libs/saxon-ee-test-12.5.jar</systemPath>
 		</dependency>
-
-
 		<dependency>
 			<groupId>net.sf.saxon</groupId>
 			<artifactId>xmlresolver</artifactId>
 			<version>5.2.2</version>
-			<scope>system</scope>
-			<systemPath>${basedir}/libs/lib/xmlresolver-5.2.2.jar</systemPath>
 		</dependency>
-
 		<dependency>
 			<groupId>net.sf.saxon</groupId>
 			<artifactId>xmlresolver</artifactId>
-			<version>5.2.2-data</version>
-			<scope>system</scope>
-			<systemPath>${basedir}/libs/lib/xmlresolver-5.2.2-data.jar</systemPath>
+			<version>5.2.2</version>
+			<classifier>data</classifier>
+
 		</dependency>
-
-
 		<dependency>
 			<groupId>net.sf.saxon</groupId>
 			<artifactId>jline</artifactId>
 			<version>2.14.6</version>
-			<scope>system</scope>
-			<systemPath>${basedir}/libs/lib/jline-2.14.6.jar</systemPath>
+
 		</dependency>
-
-
 		<dependency>
 			<groupId>net.sf.saxon</groupId>
 			<artifactId>icu4j</artifactId>
 			<version>72.1</version>
-			<scope>system</scope>
-			<systemPath>${basedir}/libs/lib/icu4j-72.1.jar</systemPath>
 		</dependency>
-
-
-
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-core</artifactId>
@@ -166,6 +253,4 @@
 			<version>${fhir.version}</version>
 		</dependency>
 	</dependencies>
-
-
 </project>

@@ -101,7 +101,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 	}
 
 	private Processor createSaxonProcessor(String bucketName) throws IOException {
-		String licenseFilePath = "/saxon_license/saxon-license.lic"; // Ensure temp path is used
+		String licenseFilePath = "/tmp/saxon-license.lic"; // Ensure temp path is used
 		EnterpriseConfiguration configuration = new EnterpriseConfiguration();
 		String key = "license/saxon-license.lic";
 
@@ -117,7 +117,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		try (S3ObjectInputStream s3InputStream = licenseObj.getObjectContent();
 				FileOutputStream fos = new FileOutputStream(new File(licenseFilePath))) {
 
-			byte[] readBuf = new byte[1024];
+			byte[] readBuf = new byte[DEFAULT_BUFFER_SIZE];
 			int readLen;
 			while ((readLen = s3InputStream.read(readBuf)) > 0) {
 				fos.write(readBuf, 0, readLen);
