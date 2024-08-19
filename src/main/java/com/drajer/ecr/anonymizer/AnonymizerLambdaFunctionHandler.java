@@ -36,6 +36,8 @@ import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.r4.model.Enumerations.ResourceType;
+import org.hl7.fhir.utilities.validation.ValidationMessage;
+import org.hl7.fhir.validation.ValidationEngine;
 import org.springframework.util.ResourceUtils;
 
 import com.amazonaws.services.lambda.runtime.Context;
@@ -76,7 +78,10 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 	private static AnonymizerLambdaFunctionHandler instance;
 	private XsltTransformer transformer;
 	private Processor processor;
-
+	private static ValidationServcieImpl validationServcieImpl;
+	private static ValidationEngine validationEngine;
+	private static EmbeddedHapiFhirConfig embeddedHapiFhirConfig;
+	
 	public static AnonymizerLambdaFunctionHandler getInstance() throws IOException {
 		if (instance == null) {
 
@@ -90,6 +95,9 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 	}
 
 	public AnonymizerLambdaFunctionHandler() throws IOException {
+		
+		validationServcieImpl = new ValidationServcieImpl();
+		embeddedHapiFhirConfig = new EmbeddedHapiFhirConfig();
 		String bucketName = System.getenv("BUCKET_NAME");
 		if (bucketName == null || bucketName.isEmpty()) {
 			throw new IllegalArgumentException("S3 bucket name is not set in the environment variables.");
@@ -98,6 +106,8 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		// Load the Saxon processor and transformer
 		this.processor = createSaxonProcessor(bucketName);
 		this.transformer = initializeTransformer();
+		this.validationEngine = embeddedHapiFhirConfig.createValidationEngine();
+		
 	}
 
 	private Processor createSaxonProcessor(String bucketName) throws IOException {
@@ -240,6 +250,11 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 				this.writeFile(processedDataBundleXml, bucket, uniqueFilename, context);
 				context.getLogger().log("Output Generated  " + bucket + "/" + uniqueFilename);
 			}
+			
+			context.getLogger().log("Before validation time " + new Date());
+			List<ValidationMessage> validateBundle = validationServcieImpl.validateBundle(eicrRRBundle, validationEngine);
+			context.getLogger().log("After validation time " + new Date());
+			context.getLogger().log("Validation Done Succesfully");
 			return "SUCCESS";
 		} catch (Exception e) {
 			context.getLogger().log(e.getMessage());

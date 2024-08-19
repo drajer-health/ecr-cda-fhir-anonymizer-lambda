@@ -38,11 +38,11 @@ import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Quantity;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.utilities.validation.ValidationMessage;
+import org.hl7.fhir.validation.ValidationEngine;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.ResourceUtils;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.util.StringUtils;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
@@ -70,9 +70,17 @@ public class AnonymizerLocal {
 	private XsltTransformer transformer;
 	private Processor processor;
 
+	private static ValidationEngine validationEngine;
+	private static EmbeddedHapiFhirConfig embeddedHapiFhirConfig;
+
+	private static ValidationServcieImpl validationServcieImpl;
+
 	private AnonymizerLocal() throws IOException {
+		validationServcieImpl = new ValidationServcieImpl();
+		embeddedHapiFhirConfig = new EmbeddedHapiFhirConfig();
 		this.processor = createSaxonProcessor();
 		this.transformer = initializeTransformer();
+		this.validationEngine = embeddedHapiFhirConfig.createValidationEngine();
 	}
 
 	public static AnonymizerLocal getInstance() {
@@ -140,6 +148,7 @@ public class AnonymizerLocal {
 
 	public static void main(String[] args) {
 
+		ValidationServcieImpl validationServcieImpl = new ValidationServcieImpl();
 		String desktop = System.getProperty("user.home");
 		String rrKey = "CCD_RR.xml";
 		String metaDataFileName = "CCD_METADATA";
@@ -185,6 +194,7 @@ public class AnonymizerLocal {
 				writeFileLocal(processedDataBundleXml, uniqueFilename);
 				System.out.println("Output Generated  " + uniqueFilename);
 			}
+			List<ValidationMessage> validateBundle = validationServcieImpl.validateBundle(eicrRRBundle, validationEngine);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -487,4 +497,5 @@ public class AnonymizerLocal {
 			System.out.println("ERROR: Unexpected error occurred: " + e.getMessage());
 		}
 	}
+
 }
