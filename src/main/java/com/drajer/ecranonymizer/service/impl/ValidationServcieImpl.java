@@ -35,19 +35,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.amazonaws.services.s3.model.S3Object;
 import com.drajer.ecranonymizer.config.S3StorageService;
 import com.drajer.ecranonymizer.service.ValidationServcie;
 import com.drajer.ecranonymizer.utils.FileUtils;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.model.dstu2.resource.Encounter.Location;
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.validation.FhirValidator;
 import ca.uhn.fhir.validation.ResultSeverityEnum;
 import ca.uhn.fhir.validation.SingleValidationMessage;
 import ca.uhn.fhir.validation.ValidationResult;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 @Service
 public class ValidationServcieImpl implements ValidationServcie {
@@ -70,7 +70,6 @@ public class ValidationServcieImpl implements ValidationServcie {
 
 	public ValidationServcieImpl(FhirContext fhirContext, ValidationEngine validationEngine,
 			S3StorageService s3StorageService) {
-		super();
 		this.fhirContext = fhirContext;
 		this.validationEngine = validationEngine;
 		this.s3StorageService = s3StorageService;
@@ -87,13 +86,12 @@ public class ValidationServcieImpl implements ValidationServcie {
 		String dataXml;
 
 	
-		try (S3Object s3File = s3StorageService.getS3File(keyName)) {
-
-			try (InputStream inputStream = s3File.getObjectContent()) {
-				dataXml = convertXmlToString(inputStream);
-			}
+		try (ResponseInputStream<GetObjectResponse> s3File = s3StorageService.getS3File(keyName)) {
+		    // Use the InputStream directly from the ResponseInputStream
+		    try (InputStream inputStream = s3File) {
+		        dataXml = convertXmlToString(inputStream);
+		    }
 		}
-
 		System.out.println("Before validation time " + new Date());
 		try {
 			Bundle bundle = parser.parseResource(Bundle.class, dataXml);

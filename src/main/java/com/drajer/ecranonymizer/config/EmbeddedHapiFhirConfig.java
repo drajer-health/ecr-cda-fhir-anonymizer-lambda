@@ -36,7 +36,7 @@ import ca.uhn.fhir.parser.IParser;
  * @author Drajer LLC
  * @since 14-04-2023
  */
-@Component
+@Configuration
 public class EmbeddedHapiFhirConfig {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedHapiFhirConfig.class);
@@ -80,7 +80,7 @@ public class EmbeddedHapiFhirConfig {
 				throw new IllegalArgumentException("Cache folder path cannot be null or empty");
 			}
 
-//
+
 			System.setProperty("user.home", ecrAnonymizerCacheFile);
 			Path cachePath = Paths.get(ecrAnonymizerCacheFile+"/.fhir/packages");
 			Files.createDirectories(cachePath);
