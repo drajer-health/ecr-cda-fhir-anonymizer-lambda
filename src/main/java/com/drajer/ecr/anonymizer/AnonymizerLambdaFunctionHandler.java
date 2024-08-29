@@ -15,13 +15,24 @@ import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import javax.xml.transform.Source;
 import javax.xml.transform.stream.StreamSource;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Composition;
@@ -52,12 +63,14 @@ import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.util.StringUtils;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
+import com.drajer.ecr.anonymizer.utils.HttpUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saxonica.config.EnterpriseConfiguration;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.util.FileUtil;
 import net.sf.saxon.Transform;
 import net.sf.saxon.lib.FeatureKeys;
 import net.sf.saxon.s9api.Processor;
@@ -66,6 +79,11 @@ import net.sf.saxon.s9api.Serializer;
 import net.sf.saxon.s9api.XsltCompiler;
 import net.sf.saxon.s9api.XsltExecutable;
 import net.sf.saxon.s9api.XsltTransformer;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent, String> {
 	private AmazonS3 s3Client = AmazonS3ClientBuilder.standard().build();
@@ -77,6 +95,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 	private XsltTransformer transformer;
 	private Processor processor;
 
+	private HttpUtils httpUtils;
 	public static AnonymizerLambdaFunctionHandler getInstance() throws IOException {
 		if (instance == null) {
 
@@ -90,12 +109,19 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 	}
 
 	public AnonymizerLambdaFunctionHandler() throws IOException {
+
+		String validationServerUrl = System.getenv("VALIDATION_SERVER_URL");
+
+		if (validationServerUrl == null || validationServerUrl.isEmpty()) {
+			throw new IllegalArgumentException("validation server url is not set in the environment variables.");
+		}
+
 		String bucketName = System.getenv("BUCKET_NAME");
 		if (bucketName == null || bucketName.isEmpty()) {
 			throw new IllegalArgumentException("S3 bucket name is not set in the environment variables.");
 		}
 
-		// Load the Saxon processor and transformer
+		this.httpUtils = new HttpUtils(validationServerUrl);
 		this.processor = createSaxonProcessor(bucketName);
 		this.transformer = initializeTransformer();
 	}
@@ -237,9 +263,26 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 				context.getLogger().log("Output not generated check logs ");
 			} else {
 				context.getLogger().log("Writing output file " + uniqueFilename);
-				this.writeFile(processedDataBundleXml, bucket, uniqueFilename, context);
+				this.writeFile(processedDataBundleXml, bucket, uniqueFilename, context,"text/xml");
 				context.getLogger().log("Output Generated  " + bucket + "/" + uniqueFilename);
 			}
+			UUID randomUUID = UUID.randomUUID();
+			String tempFileName = randomUUID + ".xml";
+
+			File file = createTempXmlFile(tempFileName, processedDataBundleXml);
+
+			context.getLogger().log("calling  Validator api at " + new Date());
+			String response = httpUtils.makePostRequest(file, context);
+
+			Path uniqueFilenamePath = Paths.get(uniqueFilename).getParent();
+			String validationOutputFileName = "validation-output.txt";
+			if (uniqueFilenamePath != null) {
+				validationOutputFileName = Paths.get(uniqueFilenamePath + "/" + "validation-output.txt").toString();
+			}
+
+			this.writeFile(response, bucket, validationOutputFileName, context,"text/plain");
+
+			context.getLogger().log("validation  done  at " + new Date());
 			return "SUCCESS";
 		} catch (Exception e) {
 			context.getLogger().log(e.getMessage());
@@ -324,7 +367,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 				context.getLogger().log("Output not generated check logs ");
 			} else {
 				context.getLogger().log("Writing FHIR output file " + fileName);
-				this.writeFile(responseXML, bucket, fileName, context);
+				this.writeFile(responseXML, bucket, fileName, context,"text/xml");
 				context.getLogger().log("FHIR Output Generated  " + bucket + "/" + fileName);
 			}
 
@@ -516,13 +559,13 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		return null;
 	}
 
-	private void writeFile(String fileContent, String bucketName, String keyPrefix, Context context) {
+	private void writeFile(String fileContent, String bucketName, String keyPrefix, Context context,String contentType) {
 		try {
 			byte[] contentAsBytes = fileContent.getBytes("UTF-8");
 			ByteArrayInputStream is = new ByteArrayInputStream(contentAsBytes);
 			ObjectMetadata meta = new ObjectMetadata();
 			meta.setContentLength(contentAsBytes.length);
-			meta.setContentType("text/xml");
+			meta.setContentType(contentType);
 
 			context.getLogger().log("bucketName ::::" + bucketName);
 			context.getLogger().log("meta ::::" + keyPrefix + meta.toString());
@@ -535,10 +578,37 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			e.printStackTrace();
 		}
 	}
+	
+	
 
 	private Map<String, Object> streamToMap(InputStream inputStream) throws IOException {
 		ObjectMapper objectMapper = new ObjectMapper();
 		return objectMapper.readValue(inputStream, Map.class);
+	}
+
+
+
+	private File createTempXmlFile(String keyPrefix, String fileContent) throws IOException {
+		File tempFile = new File("/tmp/" + keyPrefix);
+		try {
+			byte[] contentAsBytes = fileContent.getBytes("UTF-8");
+			ByteArrayInputStream is = new ByteArrayInputStream(contentAsBytes);
+			ObjectMetadata meta = new ObjectMetadata();
+			meta.setContentLength(contentAsBytes.length);
+			meta.setContentType("text/xml");
+
+			System.out.println("meta ::::" + keyPrefix + meta.toString());
+
+			// Uploading to S3 destination bucket
+//			s3Client.putObject(bucketName, keyPrefix , is, meta);
+			IOUtils.copy(is, new FileOutputStream(tempFile));
+
+			is.close();
+		} catch (Exception e) {
+			System.out.println("ERROR:" + e.getMessage());
+			e.printStackTrace();
+		}
+		return tempFile;
 	}
 
 }

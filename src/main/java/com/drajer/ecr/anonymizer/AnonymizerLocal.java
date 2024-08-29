@@ -11,19 +11,30 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import javax.xml.transform.Source;
 import javax.xml.transform.stream.StreamSource;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.r4.model.Coding;
@@ -45,13 +56,18 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.util.StringUtils;
+import com.amazonaws.waiters.Waiter;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saxonica.config.EnterpriseConfiguration;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.validation.ValidationResult;
 import net.sf.saxon.lib.FeatureKeys;
 import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.SaxonApiException;
@@ -59,6 +75,13 @@ import net.sf.saxon.s9api.Serializer;
 import net.sf.saxon.s9api.XsltCompiler;
 import net.sf.saxon.s9api.XsltExecutable;
 import net.sf.saxon.s9api.XsltTransformer;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 public class AnonymizerLocal {
 
@@ -66,6 +89,9 @@ public class AnonymizerLocal {
 	public static final int DEFAULT_BUFFER_SIZE = 8192;
 	private static final String LOINC_URL = "http://loinc.org";
 
+	private static final String apiUrl = "http://54.198.142.245:8081/api/fhir/validator";
+
+	private OkHttpClient client;
 	private static AnonymizerLocal instance;
 	private XsltTransformer transformer;
 	private Processor processor;
@@ -91,6 +117,10 @@ public class AnonymizerLocal {
 	}
 
 	private Processor createSaxonProcessor() throws IOException {
+		client = new OkHttpClient().newBuilder().connectTimeout(30, TimeUnit.MINUTES).writeTimeout(15, TimeUnit.MINUTES) // Write
+																															// timeout
+				.readTimeout(15, TimeUnit.MINUTES).build();
+
 		EnterpriseConfiguration configuration = new EnterpriseConfiguration();
 		String licenseFilePath = new ClassPathResource("saxon-license.lic").getFile().getAbsolutePath();
 		System.setProperty("http://saxon.sf.net/feature/licenseFileLocation", licenseFilePath);
@@ -138,11 +168,12 @@ public class AnonymizerLocal {
 		}
 	}
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
+		AnonymizerLocal anonymizerLocal = AnonymizerLocal.getInstance();
 
 		String desktop = System.getProperty("user.home");
 		String rrKey = "CCD_RR.xml";
-		String metaDataFileName = "CCD_METADATA";
+		String metaDataFileName = "METADATA.xml";
 		String eicrDataFileName = "CCD_EICR.xml";
 		System.out.println("metaDataFileName : " + metaDataFileName);
 
@@ -184,6 +215,25 @@ public class AnonymizerLocal {
 				System.out.println("Writing output file " + uniqueFilename);
 				writeFileLocal(processedDataBundleXml, uniqueFilename);
 				System.out.println("Output Generated  " + uniqueFilename);
+
+				File file = new File("/tmp/" + uniqueFilename);
+
+			
+
+				String response = anonymizerLocal.makePostRequest(file);
+
+				Path uniqueFilenamePath = Paths.get(uniqueFilename).getParent();
+				String validationOutputFileName="validation-output.txt";
+				if(uniqueFilenamePath!=null)
+				{
+					validationOutputFileName=Paths.get(uniqueFilenamePath + "/" + "validation-output.txt").toString();
+				}
+			
+
+				writeFileLocal(response,validationOutputFileName);
+
+				System.out.println("hi there");
+
 			}
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -487,4 +537,33 @@ public class AnonymizerLocal {
 			System.out.println("ERROR: Unexpected error occurred: " + e.getMessage());
 		}
 	}
+
+	private String makePostRequest(File file) throws Exception {
+
+		CloseableHttpClient httpClient = HttpClients.createDefault();
+		HttpPost httpPost = new HttpPost(apiUrl);
+
+		// Create MultipartEntityBuilder
+		MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+
+		builder.addBinaryBody("file", file, ContentType.DEFAULT_BINARY, file.getName());
+
+		// Build the entity
+		HttpEntity multipartEntity = builder.build();
+		httpPost.setEntity(multipartEntity);
+
+		// Execute the request
+		try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
+			// Print response details
+			HttpEntity responseEntity = response.getEntity();
+			if (responseEntity != null) {
+				String responseBody = EntityUtils.toString(responseEntity);
+				System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
+				System.out.println("Response Body: " + responseBody);
+				return responseBody;
+			}
+		}
+		return null;
+	}
+
 }
