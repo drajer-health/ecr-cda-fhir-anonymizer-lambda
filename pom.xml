@@ -20,12 +20,12 @@
 				<executions>
 					<!-- Saxon EE -->
 					<execution>
-						<id>saxon-ee</id>
+						<id>saxon-pe</id>
 						<phase>clean</phase>
 						<configuration>
-							<file>${basedir}/libs/saxon-ee-12.5.jar</file>
+							<file>${basedir}/libs/saxon-pe-12.5.jar</file>
 							<groupId>net.sf.saxon</groupId>
-							<artifactId>saxon-ee</artifactId>
+							<artifactId>saxon-pe</artifactId>
 							<version>12.5</version>
 							<packaging>jar</packaging>
 							<generatePom>true</generatePom>
@@ -36,15 +36,15 @@
 					</execution>
 					<!-- Saxon EE Test -->
 					<execution>
-						<id>saxon-ee-test</id>
+						<id>saxon-pe-test</id>
 						<phase>clean</phase>
 						<goals>
 							<goal>install-file</goal>
 						</goals>
 						<configuration>
-							<file>${basedir}/libs/saxon-ee-test-12.5.jar</file>
+							<file>${basedir}/libs/saxon-pe-test-12.5.jar</file>
 							<groupId>net.sf.saxon</groupId>
-							<artifactId>saxon-ee-test</artifactId>
+							<artifactId>saxon-pe-test</artifactId>
 							<version>12.5</version>
 							<packaging>jar</packaging>
 							<generatePom>true</generatePom>
@@ -206,12 +206,12 @@
 		</dependency>
 		<dependency>
 			<groupId>net.sf.saxon</groupId>
-			<artifactId>saxon-ee</artifactId>
+			<artifactId>saxon-pe</artifactId>
 			<version>12.5</version>
 		</dependency>
 		<dependency>
 			<groupId>net.sf.saxon</groupId>
-			<artifactId>saxon-ee-test</artifactId>
+			<artifactId>saxon-pe-test</artifactId>
 			<version>12.5</version>
 		</dependency>
 		<dependency>

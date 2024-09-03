@@ -62,7 +62,7 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.saxonica.config.EnterpriseConfiguration;
+import com.saxonica.config.ProfessionalConfiguration;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
@@ -121,7 +121,7 @@ public class AnonymizerLocal {
 																															// timeout
 				.readTimeout(15, TimeUnit.MINUTES).build();
 
-		EnterpriseConfiguration configuration = new EnterpriseConfiguration();
+		ProfessionalConfiguration configuration = new ProfessionalConfiguration();
 		String licenseFilePath = new ClassPathResource("saxon-license.lic").getFile().getAbsolutePath();
 		System.setProperty("http://saxon.sf.net/feature/licenseFileLocation", licenseFilePath);
 
