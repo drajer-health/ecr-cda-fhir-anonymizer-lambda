@@ -170,7 +170,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			processor.setConfigurationProperty(FeatureKeys.ALLOW_MULTITHREADING, true);
 			XsltCompiler compiler = processor.newXsltCompiler();
 
-			compiler.setJustInTimeCompilation(true);
+			//compiler.setJustInTimeCompilation(true);
 			XsltExecutable executable = compiler.compile(new StreamSource(xsltFile));
 			return executable.load();
 		} catch (SaxonApiException | IOException e) {
