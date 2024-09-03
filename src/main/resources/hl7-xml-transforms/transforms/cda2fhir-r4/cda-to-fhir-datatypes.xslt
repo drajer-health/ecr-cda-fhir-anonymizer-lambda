@@ -440,7 +440,7 @@
                 <xsl:apply-templates select="cda:low/@nullFlavor" mode="data-absent-reason-extension" />
             </end>
         </xsl:if>
-        <xsl:if test="not(@value) and cda:low/@nullFlavor">
+        <xsl:if test="not(@value) and cda:low/@nullFlavor and not(cda:high)">
             <start>
                 <xsl:apply-templates select="cda:low/@nullFlavor" mode="data-absent-reason-extension" />
             </start>
@@ -562,7 +562,7 @@
             </xsl:when>
             <xsl:when test="@nullFlavor">
                 <xsl:comment>INFO: CDA effectiveTime/time was null</xsl:comment>
-                <xsl:copy />
+<!--                <xsl:copy />-->
             </xsl:when>
             <xsl:otherwise>
                 <xsl:comment>WARNING: Unknown effective time format</xsl:comment>
