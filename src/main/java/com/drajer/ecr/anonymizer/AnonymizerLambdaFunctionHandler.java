@@ -65,6 +65,7 @@ import com.amazonaws.util.StringUtils;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
 import com.drajer.ecr.anonymizer.utils.HttpUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.saxonica.config.ProfessionalConfiguration;
 
 import ca.uhn.fhir.context.FhirContext;
@@ -96,6 +97,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 	private Processor processor;
 
 	private HttpUtils httpUtils;
+
 	public static AnonymizerLambdaFunctionHandler getInstance() throws IOException {
 		if (instance == null) {
 
@@ -170,7 +172,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			processor.setConfigurationProperty(FeatureKeys.ALLOW_MULTITHREADING, true);
 			XsltCompiler compiler = processor.newXsltCompiler();
 
-			//compiler.setJustInTimeCompilation(true);
+			// compiler.setJustInTimeCompilation(true);
 			XsltExecutable executable = compiler.compile(new StreamSource(xsltFile));
 			return executable.load();
 		} catch (SaxonApiException | IOException e) {
@@ -263,7 +265,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 				context.getLogger().log("Output not generated check logs ");
 			} else {
 				context.getLogger().log("Writing output file " + uniqueFilename);
-				this.writeFile(processedDataBundleXml, bucket, uniqueFilename, context,"text/xml");
+				this.writeFile(processedDataBundleXml, bucket, uniqueFilename, context, "text/xml");
 				context.getLogger().log("Output Generated  " + bucket + "/" + uniqueFilename);
 			}
 			UUID randomUUID = UUID.randomUUID();
@@ -275,12 +277,12 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			String response = httpUtils.makePostRequest(file, context);
 
 			Path uniqueFilenamePath = Paths.get(uniqueFilename).getParent();
-			String validationOutputFileName = "validation-output.txt";
+			String validationOutputFileName = "validation-output.json";
 			if (uniqueFilenamePath != null) {
-				validationOutputFileName = Paths.get(uniqueFilenamePath + "/" + "validation-output.txt").toString();
+				validationOutputFileName = Paths.get(uniqueFilenamePath + "/" + "validation-output.json").toString();
 			}
 
-			this.writeFile(response, bucket, validationOutputFileName, context,"text/plain");
+			this.writeFile(formatJsonString(response), bucket, validationOutputFileName, context, "application/json");
 
 			context.getLogger().log("validation  done  at " + new Date());
 			return "SUCCESS";
@@ -367,7 +369,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 				context.getLogger().log("Output not generated check logs ");
 			} else {
 				context.getLogger().log("Writing FHIR output file " + fileName);
-				this.writeFile(responseXML, bucket, fileName, context,"text/xml");
+				this.writeFile(responseXML, bucket, fileName, context, "text/xml");
 				context.getLogger().log("FHIR Output Generated  " + bucket + "/" + fileName);
 			}
 
@@ -559,7 +561,8 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		return null;
 	}
 
-	private void writeFile(String fileContent, String bucketName, String keyPrefix, Context context,String contentType) {
+	private void writeFile(String fileContent, String bucketName, String keyPrefix, Context context,
+			String contentType) {
 		try {
 			byte[] contentAsBytes = fileContent.getBytes("UTF-8");
 			ByteArrayInputStream is = new ByteArrayInputStream(contentAsBytes);
@@ -578,15 +581,11 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			e.printStackTrace();
 		}
 	}
-	
-	
 
 	private Map<String, Object> streamToMap(InputStream inputStream) throws IOException {
 		ObjectMapper objectMapper = new ObjectMapper();
 		return objectMapper.readValue(inputStream, Map.class);
 	}
-
-
 
 	private File createTempXmlFile(String keyPrefix, String fileContent) throws IOException {
 		File tempFile = new File("/tmp/" + keyPrefix);
@@ -609,6 +608,17 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			e.printStackTrace();
 		}
 		return tempFile;
+	}
+
+	public static String formatJsonString(String jsonString) {
+		try {
+			ObjectMapper objectMapper = new ObjectMapper();
+			Object jsonObject = objectMapper.readValue(jsonString, Object.class);
+			ObjectWriter writer = objectMapper.writerWithDefaultPrettyPrinter();
+			return writer.writeValueAsString(jsonObject);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to format JSON string", e);
+		}
 	}
 
 }

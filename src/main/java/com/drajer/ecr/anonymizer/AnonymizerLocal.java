@@ -8,6 +8,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -58,10 +59,12 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.util.StringUtils;
 import com.amazonaws.waiters.Waiter;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
+import com.drajer.ecr.anonymizer.utils.FileUtils;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.saxonica.config.ProfessionalConfiguration;
 
 import ca.uhn.fhir.context.FhirContext;
@@ -137,7 +140,7 @@ public class AnonymizerLocal {
 			processor.setConfigurationProperty(FeatureKeys.ALLOW_MULTITHREADING, true);
 			XsltCompiler compiler = processor.newXsltCompiler();
 
-			compiler.setJustInTimeCompilation(true);
+			//compiler.setJustInTimeCompilation(true);
 			XsltExecutable executable = compiler.compile(new StreamSource(xsltFile));
 			return executable.load();
 		} catch (SaxonApiException | IOException e) {
@@ -221,16 +224,17 @@ public class AnonymizerLocal {
 			
 
 				String response = anonymizerLocal.makePostRequest(file);
+				
+				String formattedResponse= formatJsonString(response);
 
 				Path uniqueFilenamePath = Paths.get(uniqueFilename).getParent();
-				String validationOutputFileName="validation-output.txt";
+				String validationOutputFileName="validation-output.json";
 				if(uniqueFilenamePath!=null)
 				{
-					validationOutputFileName=Paths.get(uniqueFilenamePath + "/" + "validation-output.txt").toString();
+					validationOutputFileName=Paths.get(uniqueFilenamePath + "/" + "validation-output.json").toString();
 				}
-			
 
-				writeFileLocal(response,validationOutputFileName);
+				writeFileLocalJson(formattedResponse,validationOutputFileName);
 
 				System.out.println("hi there");
 
@@ -398,6 +402,26 @@ public class AnonymizerLocal {
 		}
 	}
 
+	
+	public static void writeFileLocalJson(String fileContent, String keyPrefix) {
+	    try (ByteArrayInputStream is = new ByteArrayInputStream(fileContent.getBytes(StandardCharsets.UTF_8));
+	         FileOutputStream fos = new FileOutputStream("/tmp/" + keyPrefix)) {
+
+	        byte[] contentAsBytes = fileContent.getBytes(StandardCharsets.UTF_8);
+	        ObjectMetadata meta = new ObjectMetadata();
+	        meta.setContentLength(contentAsBytes.length);
+	        meta.setContentType("application/json");
+
+	        System.out.println("meta ::::" + keyPrefix + meta.toString());
+
+	        // Write to local file
+	        IOUtils.copy(is, fos);
+
+	    } catch (Exception e) {
+	        System.out.println("ERROR: " + e.getMessage());
+	        e.printStackTrace();
+	    }
+	}
 	public static String addAgeObservationBundleEntry(String bundleXml) {
 		IParser xmlParser = FhirContext.forR4().newXmlParser();
 
@@ -565,5 +589,15 @@ public class AnonymizerLocal {
 		}
 		return null;
 	}
+	 public static String formatJsonString(String jsonString) {
+	        try {
+	            ObjectMapper objectMapper = new ObjectMapper();
+	            Object jsonObject = objectMapper.readValue(jsonString, Object.class);
+	            ObjectWriter writer = objectMapper.writerWithDefaultPrettyPrinter();
+	            return writer.writeValueAsString(jsonObject);
+	        } catch (Exception e) {
+	            throw new RuntimeException("Failed to format JSON string", e);
+	        }
+	    }
 
 }

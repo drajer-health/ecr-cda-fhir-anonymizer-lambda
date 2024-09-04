@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 
+import org.apache.http.entity.ContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
@@ -22,6 +23,7 @@ public class FileUtils {
 
 	public static <T> T readFileContents(String filename, TypeReference<T> typeReference) {
 
+	
 		T object = null;
 		try {
 			InputStream inputStream = new ClassPathResource(filename).getInputStream();
