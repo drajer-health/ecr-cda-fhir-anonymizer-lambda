@@ -7,7 +7,18 @@
         <Bundle>
             <!-- Generates an id that is unique for the node. It will always be the same for the same id. Should be unique across 
            documents as the CDA document id should be unique-->
-            <id value="{concat($gvCurrentIg, '-bundle-', generate-id(cda:ClinicalDocument/cda:id))}" />
+            <xsl:variable name="documentId" select="cda:ClinicalDocument/cda:id/@extension"/>
+			<xsl:choose>
+				<xsl:when test="string($documentId) != ''">
+					<!-- Use the documentId if it's available -->
+					<id value="{$gvCurrentIg}-bundle-{$documentId}" />
+				</xsl:when>
+				<xsl:otherwise>
+					<!-- Generate a unique id if documentId is not available -->
+					<id
+						value="{concat($gvCurrentIg, '-bundle-', generate-id(cda:ClinicalDocument/cda:id))}" />
+				</xsl:otherwise>
+			</xsl:choose>
 
             <!-- Adding meta for eICR - needs to conform to eICR document bundle profile -->
             <xsl:variable as="xs:string" name="vBundleProfile">
