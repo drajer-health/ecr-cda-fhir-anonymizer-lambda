@@ -122,6 +122,7 @@ To process the file from the S3 bucket, lambda function needs to be configured t
 |--|--|
 |BUCKET_NAME  | <- S3-FolderName ->  |
 
+
 ### SQS Queue
 Choose the SQS queue and click `Create Queue` 
 

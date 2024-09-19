@@ -47,7 +47,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.util.StringUtils;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.saxonica.config.EnterpriseConfiguration;
+import com.saxonica.config.ProfessionalConfiguration;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
@@ -91,7 +91,7 @@ public class AnonymizerLocal {
 	}
 
 	private Processor createSaxonProcessor() throws IOException {
-		EnterpriseConfiguration configuration = new EnterpriseConfiguration();
+		ProfessionalConfiguration configuration = new ProfessionalConfiguration();
 		String licenseFilePath = new ClassPathResource("saxon-license.lic").getFile().getAbsolutePath();
 		System.setProperty("http://saxon.sf.net/feature/licenseFileLocation", licenseFilePath);
 
@@ -107,7 +107,7 @@ public class AnonymizerLocal {
 			processor.setConfigurationProperty(FeatureKeys.ALLOW_MULTITHREADING, true);
 			XsltCompiler compiler = processor.newXsltCompiler();
 
-			compiler.setJustInTimeCompilation(true);
+//			compiler.setJustInTimeCompilation(true);
 			XsltExecutable executable = compiler.compile(new StreamSource(xsltFile));
 			return executable.load();
 		} catch (SaxonApiException | IOException e) {
