@@ -96,12 +96,11 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		}
 
 		// Load the Saxon processor and transformer
-		this.processor = createSaxonProcessor();
+		this.processor = createSaxonProcessor(bucketName);
 		this.transformer = initializeTransformer();
 	}
 
-	private Processor createSaxonProcessor() throws IOException {
-		String bucketName = System.getenv("LICENSE_BUCKET_NAME");
+	private Processor createSaxonProcessor(String bucketName) throws IOException {
 		String licenseFilePath = "/tmp/saxon-license.lic"; // Ensure temp path is used
 		ProfessionalConfiguration configuration = new ProfessionalConfiguration();
 		String key = "license/saxon-license.lic";
