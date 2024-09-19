@@ -127,8 +127,11 @@ To process the file from the S3 bucket, lambda function needs to be configured t
 
 6.  Enter
 
+
 |Environment Variable| Value |
+|--|--|
 |LICENSE_BUCKET_NAME  | <- S3-Licence-FolderName ->  |
+
 
 
 ### SQS Queue
