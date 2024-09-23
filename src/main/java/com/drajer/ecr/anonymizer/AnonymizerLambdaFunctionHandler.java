@@ -55,7 +55,7 @@ import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.util.StringUtils;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.saxonica.config.EnterpriseConfiguration;
+import com.saxonica.config.ProfessionalConfiguration;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
@@ -112,7 +112,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 
 	private Processor createSaxonProcessor(String bucketName) throws IOException {
 		String licenseFilePath = "/tmp/saxon-license.lic"; // Ensure temp path is used
-		EnterpriseConfiguration configuration = new EnterpriseConfiguration();
+		ProfessionalConfiguration configuration = new ProfessionalConfiguration();
 		String key = "license/saxon-license.lic";
 
 		// Attempt to retrieve the license file from S3
@@ -154,7 +154,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			processor.setConfigurationProperty(FeatureKeys.ALLOW_MULTITHREADING, true);
 			XsltCompiler compiler = processor.newXsltCompiler();
 
-			compiler.setJustInTimeCompilation(true);
+//			compiler.setJustInTimeCompilation(true);
 			XsltExecutable executable = compiler.compile(new StreamSource(xsltFile));
 			return executable.load();
 		} catch (SaxonApiException | IOException e) {
