@@ -55,11 +55,12 @@ import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.util.StringUtils;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.saxonica.config.EnterpriseConfiguration;
+import com.saxonica.config.ProfessionalConfiguration;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
+import gen.lib.dotgen.conc__c;
 import net.sf.saxon.Transform;
 import net.sf.saxon.lib.FeatureKeys;
 import net.sf.saxon.s9api.Processor;
@@ -70,18 +71,41 @@ import net.sf.saxon.s9api.XsltExecutable;
 import net.sf.saxon.s9api.XsltTransformer;
 
 public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent, String> {
-	private AmazonS3 s3Client = AmazonS3ClientBuilder.standard().build();
-	private final String LOINC_URL = "http://loinc.org";
 	private String destPath = System.getProperty("java.io.tmpdir");
-	public static final int DEFAULT_BUFFER_SIZE = 8192;
-
 	private static AnonymizerLambdaFunctionHandler instance;
-	private XsltTransformer transformer;
-	private Processor processor;
 	private static ValidationServcieImpl validationServcieImpl;
-	private static ValidationEngine validationEngine;
 	private static EmbeddedHapiFhirConfig embeddedHapiFhirConfig;
-	
+    private static AmazonS3 s3Client;
+    private static XsltTransformer transformer;
+    private static Processor processor;
+    private static ValidationEngine validationEngine;
+
+    private static final String LOINC_URL = "http://loinc.org";
+    private static final int DEFAULT_BUFFER_SIZE = 8192;
+    
+    static {
+        try {
+            // Initialize S3 client
+            s3Client = AmazonS3ClientBuilder.standard().build();
+            validationServcieImpl = new ValidationServcieImpl();
+    		embeddedHapiFhirConfig = new EmbeddedHapiFhirConfig();
+    		
+    		String bucketName = System.getenv("BUCKET_NAME");
+    		if (bucketName == null || bucketName.isEmpty()) {
+    			throw new IllegalArgumentException("S3 bucket name is not set in the environment variables.");
+    		}
+
+            // Initialize Saxon Processor and Transformer
+            processor = createSaxonProcessor(bucketName);
+            transformer = initializeTransformer();
+
+            // Initialize Validation Engine
+            validationEngine =  embeddedHapiFhirConfig.createValidationEngine();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Failed to initialize static components", e);
+        }
+    }
 	public static AnonymizerLambdaFunctionHandler getInstance() throws IOException {
 		if (instance == null) {
 
@@ -94,25 +118,11 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		return instance;
 	}
 
-	public AnonymizerLambdaFunctionHandler() throws IOException {
-		
-		validationServcieImpl = new ValidationServcieImpl();
-		embeddedHapiFhirConfig = new EmbeddedHapiFhirConfig();
-		String bucketName = System.getenv("BUCKET_NAME");
-		if (bucketName == null || bucketName.isEmpty()) {
-			throw new IllegalArgumentException("S3 bucket name is not set in the environment variables.");
-		}
+	
 
-		// Load the Saxon processor and transformer
-		this.processor = createSaxonProcessor(bucketName);
-		this.transformer = initializeTransformer();
-		this.validationEngine = embeddedHapiFhirConfig.createValidationEngine();
-		
-	}
-
-	private Processor createSaxonProcessor(String bucketName) throws IOException {
+	private static Processor createSaxonProcessor(String bucketName) throws IOException {
 		String licenseFilePath = "/tmp/saxon-license.lic"; // Ensure temp path is used
-		EnterpriseConfiguration configuration = new EnterpriseConfiguration();
+		ProfessionalConfiguration configuration = new ProfessionalConfiguration();
 		String key = "license/saxon-license.lic";
 
 		// Attempt to retrieve the license file from S3
@@ -147,22 +157,20 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 		return new Processor(configuration);
 	}
 
-	private XsltTransformer initializeTransformer() {
+	private  static XsltTransformer initializeTransformer() {
 		try {
-			File xsltFile = ResourceUtils
-					.getFile("classpath:hl7-xml-transforms/transforms/cda2fhir-r4/NativeUUIDGen-cda2fhir.xslt");
-			processor.setConfigurationProperty(FeatureKeys.ALLOW_MULTITHREADING, true);
-			XsltCompiler compiler = processor.newXsltCompiler();
-
-			compiler.setJustInTimeCompilation(true);
-			XsltExecutable executable = compiler.compile(new StreamSource(xsltFile));
-			return executable.load();
-		} catch (SaxonApiException | IOException e) {
+			 Path filestoragePath = Paths.get("/var/task/hl7-xml-transforms/transforms/cda2fhir-r4/").toAbsolutePath().normalize();
+	            File file = new File("" + filestoragePath + "/NativeUUIDGen-cda2fhir.xslt");
+	            processor.setConfigurationProperty("http://saxon.sf.net/feature/allow-multithreading", true);
+	            XsltCompiler compiler = processor.newXsltCompiler();
+	            XsltExecutable executable = compiler.compile(new StreamSource(file));
+	            return executable.load();
+		} catch (SaxonApiException e) {
 			throw new RuntimeException("Failed to initialize XSLT Transformer", e);
 		}
 	}
 
-	public void transform(File sourceXml, UUID outputFileName, Context context) {
+	public  static void transform(File sourceXml, UUID outputFileName, Context context) {
 		try {
 			Source source = new StreamSource(sourceXml);
 			Path outputPath = Paths.get("/tmp", outputFileName.toString() + ".xml");
@@ -252,7 +260,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			}
 			
 			context.getLogger().log("Before validation time " + new Date());
-			List<ValidationMessage> validateBundle = validationServcieImpl.validateBundle(eicrRRBundle, validationEngine);
+			Object validateBundle = validationServcieImpl.validateBundle(eicrRRBundle, validationEngine);
 			context.getLogger().log("After validation time " + new Date());
 			context.getLogger().log("Validation Done Succesfully");
 			return "SUCCESS";

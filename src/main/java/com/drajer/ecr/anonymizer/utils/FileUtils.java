@@ -6,6 +6,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,4 +54,25 @@ public class FileUtils {
 			logger.debug("Unable to write data to file: {}", filename, e);
 		}
 	}
+	public static Path getAbsolutePath(String fileStorage) throws IOException {
+	      Path filePath = Paths.get(fileStorage);
+		 return filePath.toAbsolutePath().normalize();
+	   }
+	
+	 public static List<String> getListFilesInDirectory(String dir, int depth) throws IOException {
+	        try (Stream<Path> stream = Files.walk(Paths.get(dir), depth)) {
+	            return stream.filter(path -> !Files.isDirectory(path))
+	                         .map(Path::getFileName)
+	                         .map(Path::toString)
+	                         .collect(Collectors.toList());
+	        }
+	    }
+
+	    public static List<Path> getDirectories(Path path) throws IOException {
+	        try (Stream<Path> walk = Files.walk(path)) {
+	            return walk.filter(Files::isDirectory)
+	                       .skip(1) 
+	                       .collect(Collectors.toList());
+	        }
+	    }
 }
