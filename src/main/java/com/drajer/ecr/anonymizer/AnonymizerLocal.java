@@ -92,7 +92,7 @@ public class AnonymizerLocal {
 	public static final int DEFAULT_BUFFER_SIZE = 8192;
 	private static final String LOINC_URL = "http://loinc.org";
 
-	private static final String apiUrl = "http://54.198.142.245:8081/api/fhir/validator";
+	private static final String apiUrl = "http://locahost:8080/api/fhir/validator";
 
 	private OkHttpClient client;
 	private static AnonymizerLocal instance;
@@ -176,7 +176,7 @@ public class AnonymizerLocal {
 
 		String desktop = System.getProperty("user.home");
 		String rrKey = "CCD_RR.xml";
-		String metaDataFileName = "METADATA.xml";
+		String metaDataFileName = "METADATA.json";
 		String eicrDataFileName = "CCD_EICR.xml";
 		System.out.println("metaDataFileName : " + metaDataFileName);
 
