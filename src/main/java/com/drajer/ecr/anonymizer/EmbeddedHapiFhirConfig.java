@@ -2,7 +2,9 @@ package com.drajer.ecr.anonymizer;
 
 import java.io.File;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -45,6 +47,11 @@ public class EmbeddedHapiFhirConfig {
 			System.out.println("Definitions:::::{}"+ definitions);
 			final String txServer = true ? "http://tx.fhir.org" : null;
 			final String fhirVersion = "4.0.1";
+			
+			System.setProperty("user.home", terminologycachePath.toString());
+			Path cachePath = Paths.get(terminologycachePath+"/.fhir/packages");
+			Files.createDirectories(cachePath);
+			
 			FilesystemPackageCacheManager cacheManager = new FilesystemPackageCacheManager(
 					FilesystemPackageCacheManager.FilesystemPackageCacheMode.USER);
 			String path1 = this.getClass().getClassLoader().getResource("packages").getPath().toString();

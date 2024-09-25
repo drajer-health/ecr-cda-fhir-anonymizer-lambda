@@ -194,7 +194,7 @@ public class AnonymizerLocal {
 				writeFileLocal(processedDataBundleXml, uniqueFilename);
 				System.out.println("Output Generated  " + uniqueFilename);
 			}
-			List<ValidationMessage> validateBundle = validationServcieImpl.validateBundle(eicrRRBundle, validationEngine);
+			Object validateBundle = validationServcieImpl.validateBundle(eicrRRBundle, validationEngine);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
