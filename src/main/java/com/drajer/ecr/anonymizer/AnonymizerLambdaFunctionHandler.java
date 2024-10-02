@@ -10,6 +10,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
@@ -18,24 +19,25 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 import javax.xml.transform.Source;
 import javax.xml.transform.stream.StreamSource;
 
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Composition;
 import org.hl7.fhir.r4.model.Composition.SectionComponent;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DateType;
+import org.hl7.fhir.r4.model.Enumerations.ResourceType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Quantity;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
-import org.hl7.fhir.r4.model.Enumerations.ResourceType;
 import org.springframework.util.ResourceUtils;
 
 import com.amazonaws.services.lambda.runtime.Context;
@@ -272,7 +274,8 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 
 			S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucket, key));
 			input = s3Object.getObjectContent();
-			outputFile = new File("/tmp/" + keyFileName);
+			outputFile = new File("/tmp/" + keyFileName+Instant.now());
+			context.getLogger().log("outputFile name : "+outputFile.getName());
 			context.getLogger().log("---- s3Object-Content....:" + s3Object.getObjectMetadata().getContentType());
 
 			outputFile.setWritable(true);
@@ -305,6 +308,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			context.getLogger().log("--- Before Transformation UUID---::" + randomUUID);
 
 			instance.transform(outputFile, randomUUID, context);
+			outputFile.delete();
 
 			String responseXML = getFileContentAsString(randomUUID, context);
 
