@@ -1,7 +1,6 @@
 package com.drajer.ecr.anonymizer.utils;
 
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -58,6 +57,35 @@ public class HttpUtils {
             }
         } catch (IOException e) {
             context.getLogger().log("Error executing HTTP request: " + e.getMessage());
+            throw e;
+        }
+    }
+    
+    public String makePostRequest(File file) throws IOException {
+        
+
+        try (CloseableHttpClient httpClient = HttpClients.custom().setDefaultRequestConfig(requestConfig).build()) {
+            HttpPost httpPost = new HttpPost(apiUrl);
+        
+            // Create MultipartEntityBuilder
+            MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+            builder.addBinaryBody("file", file, ContentType.DEFAULT_BINARY, file.getName());
+
+            // Build the entity and set it to the post request
+            httpPost.setEntity(builder.build());
+
+            // Execute the request and handle the response
+            try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
+                HttpEntity responseEntity = response.getEntity();
+                if (responseEntity != null) {
+                    String responseBody = EntityUtils.toString(responseEntity);
+              
+                    return responseBody;
+                } else {
+                    return null;
+                }
+            }
+        } catch (IOException e) {
             throw e;
         }
     }

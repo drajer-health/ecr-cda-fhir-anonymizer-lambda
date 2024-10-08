@@ -60,6 +60,7 @@ import com.amazonaws.util.StringUtils;
 import com.amazonaws.waiters.Waiter;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
 import com.drajer.ecr.anonymizer.utils.FileUtils;
+import com.drajer.ecr.anonymizer.utils.HttpUtils;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -92,14 +93,16 @@ public class AnonymizerLocal {
 	public static final int DEFAULT_BUFFER_SIZE = 8192;
 	private static final String LOINC_URL = "http://loinc.org";
 
-	private static final String apiUrl = "http://locahost:8080/api/fhir/validator";
+	private static final String apiUrl = "http://3.91.13.251:8081/api/fhir/validator";
 
 	private OkHttpClient client;
 	private static AnonymizerLocal instance;
 	private XsltTransformer transformer;
 	private Processor processor;
+	private HttpUtils httpUtils;
 
 	private AnonymizerLocal() throws IOException {
+		this.httpUtils = new HttpUtils(apiUrl);
 		this.processor = createSaxonProcessor();
 		this.transformer = initializeTransformer();
 	}
@@ -223,7 +226,7 @@ public class AnonymizerLocal {
 
 			
 
-				String response = anonymizerLocal.makePostRequest(file);
+				String response =  instance.httpUtils.makePostRequest(file);
 				
 				String formattedResponse= formatJsonString(response);
 
