@@ -4,14 +4,14 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.drajer.ecr.anonymizer</groupId>
 	<artifactId>ecr-cda-fhir-anonymizer-lambda</artifactId>
-	<version>1.0.17</version>
+	<version>1.0.18</version>
 	<packaging>jar</packaging>
 	<properties>
 		<fhir.version>6.2.1</fhir.version>
 		<fhirpath.version>6.2.1</fhirpath.version>
 		<aws.sdk.s3.version>1.12.773</aws.sdk.s3.version>
 		<junit.version>4.13.1</junit.version>
-		<httpclient.version>5.4</httpclient.version>
+		<httpclient.version>4.5.2</httpclient.version>
 		<fhirutilities.version>6.3.31</fhirutilities.version>
 		<guava.version>33.3.1-jre</guava.version>
 		<commons.io.version>2.17.0</commons.io.version>
@@ -199,8 +199,8 @@
 			</exclusions>
 		</dependency>
 		<dependency>
-			<groupId>org.apache.httpcomponents.client5</groupId>
-			<artifactId>httpclient5</artifactId>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient</artifactId>
 			<version>${httpclient.version}</version>
 		</dependency>		
 		<dependency>
