@@ -195,13 +195,23 @@
 				<exclusion>
 					<groupId>org.apache.httpcomponents</groupId>
 					<artifactId>httpclient</artifactId>
-				</exclusion>				
+				</exclusion>		
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>						
 			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient</artifactId>
 			<version>${httpclient.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>		
 		<dependency>
 			<groupId>com.fasterxml.jackson.dataformat</groupId>
