@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.drajer.ecr.anonymizer</groupId>
 	<artifactId>ecr-cda-fhir-anonymizer-lambda</artifactId>
-	<version>1.0.18</version>
+	<version>1.0.19</version>
 	<packaging>jar</packaging>
 	<properties>
 		<fhir.version>6.2.1</fhir.version>
@@ -13,8 +13,11 @@
 		<junit.version>4.13.1</junit.version>
 		<httpclient.version>4.5.2</httpclient.version>
 		<fhirutilities.version>6.3.31</fhirutilities.version>
+		<fhirr4.version>6.3.32</fhirr4.version>
 		<guava.version>33.3.1-jre</guava.version>
 		<commons.io.version>2.17.0</commons.io.version>
+		<commonstext.version>1.12.0</commonstext.version>
+		<commonscodec.version>1.17.1</commonscodec.version>
 	</properties>
 
 	<build>
@@ -199,8 +202,17 @@
 				<exclusion>
 					<groupId>commons-logging</groupId>
 					<artifactId>commons-logging</artifactId>
-				</exclusion>						
+				</exclusion>	
+				<exclusion>
+					<groupId>commons-codec</groupId>
+					<artifactId>commons-codec</artifactId>
+				</exclusion>									
 			</exclusions>
+		</dependency>
+		<dependency>
+		    <groupId>commons-codec</groupId>
+		    <artifactId>commons-codec</artifactId>
+		    <version>${commonscodec.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
@@ -211,6 +223,10 @@
 					<groupId>commons-logging</groupId>
 					<artifactId>commons-logging</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>commons-codec</groupId>
+					<artifactId>commons-codec</artifactId>
+				</exclusion>				
 			</exclusions>
 		</dependency>		
 		<dependency>
@@ -278,7 +294,15 @@
 				<exclusion>
 					<groupId>commons-io</groupId>
 					<artifactId>commons-io</artifactId>
-				</exclusion>				
+				</exclusion>	
+				<exclusion>
+					<groupId>org.apache.commons</groupId>
+					<artifactId>commons-text</artifactId>
+				</exclusion>	
+				<exclusion>
+					<groupId>commons-codec</groupId>
+					<artifactId>commons-codec</artifactId>
+				</exclusion>											
 			</exclusions>			
 		</dependency>
 		<dependency>
@@ -290,8 +314,22 @@
 					<groupId>ca.uhn.hapi.fhir</groupId>
 					<artifactId>org.hl7.fhir.utilities</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>ca.uhn.hapi.fhir</groupId>
+					<artifactId>org.hl7.fhir.r4</artifactId>
+				</exclusion>				
 			</exclusions>	
 		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-text</artifactId>
+		    <version>${commonstext.version}</version>
+		</dependency>		
+		<dependency>
+		    <groupId>ca.uhn.hapi.fhir</groupId>
+		    <artifactId>org.hl7.fhir.r4</artifactId>
+		    <version>${fhirr4.version}</version>
+		</dependency>		
 		<dependency>
 		    <groupId>ca.uhn.hapi.fhir</groupId>
 		    <artifactId>org.hl7.fhir.utilities</artifactId>
