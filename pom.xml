@@ -18,6 +18,7 @@
 		<commons.io.version>2.17.0</commons.io.version>
 		<commonstext.version>1.12.0</commonstext.version>
 		<commonscodec.version>1.17.1</commonscodec.version>
+		<commonsnet.version>3.11.1</commonsnet.version>
 	</properties>
 
 	<build>
@@ -181,7 +182,6 @@
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 			<version>${junit.version}</version>
-			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.amazonaws</groupId>
@@ -213,6 +213,12 @@
 		    <groupId>commons-codec</groupId>
 		    <artifactId>commons-codec</artifactId>
 		    <version>${commonscodec.version}</version>
+		    <exclusions>
+				<exclusion>
+			      <groupId>commons-io</groupId>
+			      <artifactId>commons-io</artifactId>
+				</exclusion>	
+			</exclusions>		    
 		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
@@ -238,6 +244,12 @@
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-lambda-java-events</artifactId>
 			<version>3.11.5</version>
+			<exclusions>
+				<exclusion>
+					<groupId>joda-time</groupId>
+					<artifactId>joda-time</artifactId>
+				</exclusion>			
+			</exclusions>			
 		</dependency>
 		<dependency>
 			<groupId>com.amazonaws</groupId>
@@ -302,9 +314,18 @@
 				<exclusion>
 					<groupId>commons-codec</groupId>
 					<artifactId>commons-codec</artifactId>
-				</exclusion>											
+				</exclusion>	
+				<exclusion>
+					<groupId>commons-net</groupId>
+					<artifactId>commons-net</artifactId>
+				</exclusion>																		
 			</exclusions>			
 		</dependency>
+		<dependency>
+		    <groupId>commons-net</groupId>
+		    <artifactId>commons-net</artifactId>
+		    <version>${commonsnet.version}</version>
+		</dependency>		
 		<dependency>
 			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-structures-r4</artifactId>
@@ -317,13 +338,23 @@
 				<exclusion>
 					<groupId>ca.uhn.hapi.fhir</groupId>
 					<artifactId>org.hl7.fhir.r4</artifactId>
-				</exclusion>				
+				</exclusion>	
+				<exclusion>
+					<groupId>commons-net</groupId>
+					<artifactId>commons-net</artifactId>
+				</exclusion>							
 			</exclusions>	
 		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-text</artifactId>
 		    <version>${commonstext.version}</version>
+		    <exclusions>
+				<exclusion>
+			      <groupId>commons-io</groupId>
+			      <artifactId>commons-io</artifactId>
+				</exclusion>	
+			</exclusions>	    
 		</dependency>		
 		<dependency>
 		    <groupId>ca.uhn.hapi.fhir</groupId>
