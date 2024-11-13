@@ -142,7 +142,7 @@ public class AnonymizerLocal {
 
 		String desktop = System.getProperty("user.home");
 		String rrKey = "CCD_RR.xml";
-		String metaDataFileName = "CCD_METADATA";
+		String metaDataFileName = "CCD_METADATA.xml";
 		String eicrDataFileName = "CCD_EICR.xml";
 		System.out.println("metaDataFileName : " + metaDataFileName);
 
