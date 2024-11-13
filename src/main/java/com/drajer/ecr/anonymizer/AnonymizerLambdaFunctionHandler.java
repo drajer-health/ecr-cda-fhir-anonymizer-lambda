@@ -231,6 +231,23 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			String uniqueFilename = "OUTPUT-" + key;
 			IParser parser = FhirContext.forR4().newXmlParser();
 
+			if (eicrRRBundle == null) {
+				context.getLogger().log("Rejected due to Route Entity Organization for given jurisdictionsToRetain");
+
+				if(eicrBundle!=null) {
+					// Write eicrBundle to "Rejected/ECIR" directory
+					this.writeFile(parser.encodeResourceToString(eicrBundle), "Rejected/ECIR", key, context);
+				}
+				if(rrBundle!=null) {
+					// Standardize the filename for RR bundle output by replacing case-insensitive "EICR" with "RR"
+					String rrFilename = key.replaceAll("(?i)eicr", "RR");
+
+
+					this.writeFile(parser.encodeResourceToString(rrBundle), "Rejected/RR", rrFilename, context);
+				}
+			}
+
+
 			String processedDataBundleXml = parser.setPrettyPrint(true).encodeResourceToString(eicrRRBundle);
 
 			context.getLogger().log("Anonymizer file name : " + uniqueFilename);
