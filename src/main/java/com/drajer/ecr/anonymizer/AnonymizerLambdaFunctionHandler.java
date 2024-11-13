@@ -236,14 +236,14 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 
 				if(eicrBundle!=null) {
 					// Write eicrBundle to "Rejected/ECIR" directory
-					this.writeFile(parser.encodeResourceToString(eicrBundle), bucket,"Rejected_Bundle/EICR/"+key, context);
+					this.writeFile(parser.encodeResourceToString(eicrBundle), bucket,"Rejected_Bundle/"+key, context);
 				}
 				if(rrBundle!=null) {
 					// Standardize the filename for RR bundle output by replacing case-insensitive "EICR" with "RR"
 					String rrFilename = key.replaceAll("(?i)eicr", "RR");
 
 
-					this.writeFile(parser.encodeResourceToString(rrBundle),bucket, "Rejected_Bundle/RR/"+rrFilename, context);
+					this.writeFile(parser.encodeResourceToString(rrBundle),bucket, "Rejected_Bundle/"+rrFilename, context);
 				}
 				throw new Exception("Rejected due to Route Entity Organization for given jurisdictionsToRetain");
 			}
