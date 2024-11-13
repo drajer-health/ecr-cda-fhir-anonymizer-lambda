@@ -245,6 +245,7 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 
 					this.writeFile(parser.encodeResourceToString(rrBundle),bucket, "Rejected_Bundle/RR/"+rrFilename, context);
 				}
+				throw new Exception("Rejected due to Route Entity Organization for given jurisdictionsToRetain");
 			}
 
 
