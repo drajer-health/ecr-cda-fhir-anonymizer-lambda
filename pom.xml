@@ -4,23 +4,32 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.drajer.ecr.anonymizer</groupId>
 	<artifactId>ecr-cda-fhir-anonymizer-lambda</artifactId>
-	<version>1.0.15</version>
+	<version>1.0.20</version>
 	<packaging>jar</packaging>
 	<properties>
-		<fhir.version>5.4.0</fhir.version>
-		<fhirpath.version>5.4.0</fhirpath.version>
+		<fhir.version>6.2.1</fhir.version>
+		<fhirpath.version>6.2.1</fhirpath.version>
+		<aws.sdk.s3.version>1.12.773</aws.sdk.s3.version>
+		<junit.version>4.13.1</junit.version>
+		<httpclient.version>4.5.2</httpclient.version>
+		<fhirutilities.version>6.3.31</fhirutilities.version>
+		<fhirr4.version>6.3.32</fhirr4.version>
+		<guava.version>33.3.1-jre</guava.version>
+		<commons.io.version>2.17.0</commons.io.version>
+		<commonstext.version>1.12.0</commonstext.version>
+		<commonscodec.version>1.17.1</commonscodec.version>
+		<commonsnet.version>3.11.1</commonsnet.version>
 	</properties>
 
 	<build>
 		<plugins>
-
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-install-plugin</artifactId>
 				<executions>
-					<!-- Saxon EE -->
+					<!-- Saxon PE -->
 					<execution>
-						<id>saxon-ee</id>
+						<id>saxon-pe</id>
 						<phase>clean</phase>
 						<configuration>
 							<file>${basedir}/libs/saxon-pe-12.5.jar</file>
@@ -34,9 +43,9 @@
 							<goal>install-file</goal>
 						</goals>
 					</execution>
-					<!-- Saxon EE Test -->
+					<!-- Saxon PE Test -->
 					<execution>
-						<id>saxon-ee-test</id>
+						<id>saxon-pe-test</id>
 						<phase>clean</phase>
 						<goals>
 							<goal>install-file</goal>
@@ -127,7 +136,6 @@
 					<target>1.8</target>
 					<encoding>UTF-8</encoding>
 					<forceJavacCompilerUse>true</forceJavacCompilerUse>
-					<includeSystemScope>true</includeSystemScope>
 				</configuration>
 			</plugin>
 
@@ -161,19 +169,18 @@
 			<dependency>
 				<groupId>com.amazonaws</groupId>
 				<artifactId>aws-java-sdk-bom</artifactId>
-				<version>1.11.256</version>
+				<version>${aws.sdk.s3.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
-	<dependencies>
+		<dependencies>
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<version>4.12</version>
-			<scope>test</scope>
+			<version>${junit.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.amazonaws</groupId>
@@ -187,8 +194,46 @@
 					<groupId>software.amazon.ion</groupId>
 					<artifactId>ion-java</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>org.apache.httpcomponents</groupId>
+					<artifactId>httpclient</artifactId>
+				</exclusion>		
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>	
+				<exclusion>
+					<groupId>commons-codec</groupId>
+					<artifactId>commons-codec</artifactId>
+				</exclusion>									
 			</exclusions>
 		</dependency>
+		<dependency>
+		    <groupId>commons-codec</groupId>
+		    <artifactId>commons-codec</artifactId>
+		    <version>${commonscodec.version}</version>
+		    <exclusions>
+				<exclusion>
+			      <groupId>commons-io</groupId>
+			      <artifactId>commons-io</artifactId>
+				</exclusion>	
+			</exclusions>		    
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient</artifactId>
+			<version>${httpclient.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>commons-codec</groupId>
+					<artifactId>commons-codec</artifactId>
+				</exclusion>				
+			</exclusions>
+		</dependency>		
 		<dependency>
 			<groupId>com.fasterxml.jackson.dataformat</groupId>
 			<artifactId>jackson-dataformat-cbor</artifactId>
@@ -198,6 +243,12 @@
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-lambda-java-events</artifactId>
 			<version>3.11.5</version>
+			<exclusions>
+				<exclusion>
+					<groupId>joda-time</groupId>
+					<artifactId>joda-time</artifactId>
+				</exclusion>			
+			</exclusions>			
 		</dependency>
 		<dependency>
 			<groupId>com.amazonaws</groupId>
@@ -206,12 +257,12 @@
 		</dependency>
 		<dependency>
 			<groupId>net.sf.saxon</groupId>
-			<artifactId>saxon-ee</artifactId>
+			<artifactId>saxon-pe</artifactId>
 			<version>12.5</version>
 		</dependency>
 		<dependency>
 			<groupId>net.sf.saxon</groupId>
-			<artifactId>saxon-ee-test</artifactId>
+			<artifactId>saxon-pe-test</artifactId>
 			<version>12.5</version>
 		</dependency>
 		<dependency>
@@ -246,11 +297,89 @@
 			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-base</artifactId>
 			<version>${fhir.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.google.guava</groupId>
+					<artifactId>guava</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>commons-io</groupId>
+					<artifactId>commons-io</artifactId>
+				</exclusion>	
+				<exclusion>
+					<groupId>org.apache.commons</groupId>
+					<artifactId>commons-text</artifactId>
+				</exclusion>	
+				<exclusion>
+					<groupId>commons-codec</groupId>
+					<artifactId>commons-codec</artifactId>
+				</exclusion>	
+				<exclusion>
+					<groupId>commons-net</groupId>
+					<artifactId>commons-net</artifactId>
+				</exclusion>																		
+			</exclusions>			
 		</dependency>
+		<dependency>
+		    <groupId>commons-net</groupId>
+		    <artifactId>commons-net</artifactId>
+		    <version>${commonsnet.version}</version>
+		</dependency>		
 		<dependency>
 			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-structures-r4</artifactId>
 			<version>${fhir.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>ca.uhn.hapi.fhir</groupId>
+					<artifactId>org.hl7.fhir.utilities</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>ca.uhn.hapi.fhir</groupId>
+					<artifactId>org.hl7.fhir.r4</artifactId>
+				</exclusion>	
+				<exclusion>
+					<groupId>commons-net</groupId>
+					<artifactId>commons-net</artifactId>
+				</exclusion>							
+			</exclusions>	
 		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-text</artifactId>
+		    <version>${commonstext.version}</version>
+		    <exclusions>
+				<exclusion>
+			      <groupId>commons-io</groupId>
+			      <artifactId>commons-io</artifactId>
+				</exclusion>	
+			</exclusions>	    
+		</dependency>		
+		<dependency>
+		    <groupId>ca.uhn.hapi.fhir</groupId>
+		    <artifactId>org.hl7.fhir.r4</artifactId>
+		    <version>${fhirr4.version}</version>
+		</dependency>		
+		<dependency>
+		    <groupId>ca.uhn.hapi.fhir</groupId>
+		    <artifactId>org.hl7.fhir.utilities</artifactId>
+		    <version>${fhirutilities.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>${guava.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>${commons.io.version}</version>
+		</dependency>		
+
+		<dependency>
+		    <groupId>javax.xml.bind</groupId>
+		    <artifactId>jaxb-api</artifactId>
+		    <version>2.3.1</version>
+		</dependency>		
 	</dependencies>
 </project>

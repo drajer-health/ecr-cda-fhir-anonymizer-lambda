@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Resource;
@@ -284,7 +285,7 @@ public class FilterDataService {
 	 */
 	private ObjectNode applyTransformation(ObjectNode maskedNode, Map<String, Object> maskData, String key,
 			JsonNode value) {
-		Map<String, Object> transformationRule = (Map<String, Object>) maskData.get("transformation");
+		Map<String, Object> transformationRule = (Map<String, Object>) maskData.getOrDefault("transformation",Collections.emptyMap());
 
 		if (transformationRule != null && !transformationRule.isEmpty()) {
 			return transformField(maskedNode, transformationRule, key, value);
@@ -329,8 +330,15 @@ public class FilterDataService {
 			int max = Optional.ofNullable((Integer) transformation.get("max")).orElse(0);
 
 			if (value != null && value.isTextual() && value.textValue().length() > max) {
-				String truncatedValue = value.textValue().substring(0, max);
-				maskedNode.put(key, truncatedValue);
+
+				String textValue = value.textValue();
+
+				StringBuilder truncatedValue = new StringBuilder(textValue.substring(0, max));
+				for (int i=max;i<textValue.length();i++)
+				{
+					truncatedValue.append("0");
+				}
+				maskedNode.set(key, TextNode.valueOf(truncatedValue.toString()));
 			}
 		}
 		return maskedNode;

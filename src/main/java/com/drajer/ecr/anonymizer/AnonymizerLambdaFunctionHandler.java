@@ -53,7 +53,6 @@ import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.util.StringUtils;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.saxonica.config.EnterpriseConfiguration;
 import com.saxonica.config.ProfessionalConfiguration;
 
 import ca.uhn.fhir.context.FhirContext;
@@ -227,14 +226,32 @@ public class AnonymizerLambdaFunctionHandler implements RequestHandler<SQSEvent,
 			Bundle eicrRRBundle = anonymizerService.addReportabilityResponseInformationSection(eicrBundle, rrBundle,
 					metaDataMap);
 
-			String uniqueFilename = "OUTPUT-" + key;
+
+
 			IParser parser = FhirContext.forR4().newXmlParser();
+			String uniqueFilename = "OUTPUT-" + key;
+
+			if (eicrRRBundle == null) {
+				context.getLogger().log("Rejected due to Route Entity Organization for given jurisdictionsToRetain");
+
+				// Write eicrBundle to "Rejected/ECIR" directory
+				this.writeFile(parser.encodeResourceToString(eicrBundle), "Rejected/ECIR", key, context);
+
+				// Standardize the filename for RR bundle output by replacing case-insensitive "EICR" with "RR"
+				String rrFilename = key.replaceAll("(?i)eicr", "RR");
+
+
+				// Write rrBundle to "Rejected/RR" directory
+				this.writeFile(parser.encodeResourceToString(rrBundle), "Rejected/RR", rrFilename, context);
+			}
+
 
 			String processedDataBundleXml = parser.setPrettyPrint(true).encodeResourceToString(eicrRRBundle);
 
 			context.getLogger().log("Anonymizer file name : " + uniqueFilename);
 
 			if (StringUtils.isNullOrEmpty(processedDataBundleXml)) {
+
 				context.getLogger().log("Output not generated check logs ");
 			} else {
 				context.getLogger().log("Writing output file " + uniqueFilename);

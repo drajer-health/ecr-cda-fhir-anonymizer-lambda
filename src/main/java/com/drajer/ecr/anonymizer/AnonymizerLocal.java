@@ -41,13 +41,10 @@ import org.hl7.fhir.r4.model.Resource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.ResourceUtils;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.util.StringUtils;
 import com.drajer.ecr.anonymizer.service.AnonymizerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.saxonica.config.EnterpriseConfiguration;
 import com.saxonica.config.ProfessionalConfiguration;
 
 import ca.uhn.fhir.context.FhirContext;

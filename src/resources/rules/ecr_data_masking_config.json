@@ -25,8 +25,8 @@
 			}
 		},
 		{
-			"targetElement": "ref.display",
-			"action": "mask",
+			"targetElement": "postalCode",
+			"action": "transform",
 			"maskedData": {
 				"_display": {
 					"extension": [
@@ -37,9 +37,13 @@
 					]
 				}
 			},
-			"removeAll": true,
-			"referenceSpecific": true
+			"transformation": {
+				"type": "truncate",
+				"max": 3
+			},
+			"removeAll": true
 		}
+
 	],
 	"Patient": [
 		{

@@ -105,85 +105,104 @@ public class AnonymizerService {
 		}
 	}
 
-	public Bundle addReportabilityResponseInformationSection(Bundle eicrBundle, Bundle rrBundle,
-			Map<String, Object> metaDataMap) {
+
+	public Bundle addReportabilityResponseInformationSection(Bundle eicrBundle, Bundle rrBundle, Map<String, Object> metaDataMap) {
 
 		IParser jsonParser = FhirContext.forR4().newJsonParser();
 
 		Composition eicrComposition = (Composition) getResourceByType(eicrBundle, "Composition");
-
 		Composition rrComposition = (Composition) getResourceByType(rrBundle, "Composition");
 
-		if (eicrComposition != null && rrComposition != null
-				&& isCompositionValid(rrComposition, RR_COMP_SECTION_CODE, LOINC_URL)) {
 
-			List<SectionComponent> section = rrComposition.getSection();
-
-			SectionComponent rrSummarySection = findSectionByCode(section, RR_SUMMARY_SECTION_CODE, LOINC_URL);
-
-			if (rrSummarySection != null) {
-
-				List<Reference> references = rrSummarySection.getEntry();
-
-				List<Map<String, Object>> resourceList = new ArrayList<>();
-				List<Map<String, Object>> subResourceList = new ArrayList<>();
-				List<Map<String, Object>> perfomerResourceList = new ArrayList<>();
-
-				processReferences(rrBundle, references, resourceList, RR_CONDITION_OBS_CODE, LOINC_URL, true);
-
-				if (resourceList != null && !resourceList.isEmpty()) {
-
-					List<Reference> rrRelevantReportableObsReferenceList = createReferenceList(resourceList);
-
-					addSection(eicrComposition, rrRelevantReportableObsReferenceList, RR_COMP_SECTION_CODE, LOINC_URL,
-							REPORTABILITY_RESPONSE_SECTION_TITLE);
-
-					for (Map<String, Object> resourceMap : resourceList) {
-
-						Resource resource = (Resource) resourceMap.get("resource");
-
-						if (resource instanceof Observation) {
-							Observation observation = (Observation) resource;
-
-							processReferences(rrBundle, observation.getHasMember(), subResourceList, null, null, false);
-
-						}
-					}
-
-					for (Map<String, Object> resourceMap : subResourceList) {
-
-						Resource resource = (Resource) resourceMap.get("resource");
-
-						List<Map<String, Object>> performerList = new ArrayList<>();
-						if (resource instanceof Observation) {
-							Observation observation = (Observation) resource;
-
-							processPerformerReferences(rrBundle, observation.getPerformer(), performerList, null, null,
-									false);
-							FilterDataService filterDataService = new FilterDataService();
-							List<Map<String, Object>> filterOrganizationsByJurisdictions = filterDataService
-									.filterOrganizationsByJurisdictions(performerList, metaDataMap,
-											"jurisdictionsOrganization");
-
-							List<Reference> validPerformer = createReferenceList(filterOrganizationsByJurisdictions);
-							observation.setPerformer(validPerformer);
-							perfomerResourceList.addAll(filterOrganizationsByJurisdictions);
-						}
-					}
-
-					addResourceMapToBundle(eicrBundle, resourceList);
-					addResourceMapToBundle(eicrBundle, subResourceList);
-					addResourceMapToBundle(eicrBundle, perfomerResourceList);
-
-				}
-
-			}
-
+		if (eicrComposition == null || rrComposition == null ||
+				!isCompositionValid(rrComposition, RR_COMP_SECTION_CODE, LOINC_URL)) {
+			return null;
 		}
-		generateBundleGuid(eicrBundle);
-		return eicrBundle;
 
+		SectionComponent rrSummarySection = findSectionByCode(rrComposition.getSection(), RR_SUMMARY_SECTION_CODE, LOINC_URL);
+		if (rrSummarySection == null) {
+			return null;
+		}
+
+		List<Map<String, Object>> conditionObservations = new ArrayList<>();
+		processReferences(rrBundle, rrSummarySection.getEntry(), conditionObservations, RR_CONDITION_OBS_CODE, LOINC_URL, true);
+
+		List<Map<String, Object>> validRRCompConditionObs = new ArrayList<>();
+		List<Map<String, Object>> rrReportableInformationObs = new ArrayList<>();
+		List<Map<String, Object>> performerResources = new ArrayList<>();
+
+		for (Map<String, Object> resourceMap : conditionObservations) {
+			if (processConditionObservation(rrBundle, metaDataMap, resourceMap, rrReportableInformationObs, performerResources)) {
+				validRRCompConditionObs.add(resourceMap);
+			}
+		}
+
+		if (validRRCompConditionObs.isEmpty()) {
+			return null;
+		}
+
+		List<Reference> rrRelevantReportableObsReferenceList = createReferenceList(validRRCompConditionObs);
+		addSection(eicrComposition, rrRelevantReportableObsReferenceList, RR_COMP_SECTION_CODE, LOINC_URL, REPORTABILITY_RESPONSE_SECTION_TITLE);
+		addResourceMapToBundle(eicrBundle, validRRCompConditionObs);
+		addResourceMapToBundle(eicrBundle, rrReportableInformationObs);
+		addResourceMapToBundle(eicrBundle, performerResources);
+
+
+		return eicrBundle;
 	}
+
+	private boolean processConditionObservation(Bundle rrBundle, Map<String, Object> metaDataMap,
+												Map<String, Object> resourceMap, List<Map<String, Object>> rrReportableInformationObs,
+												List<Map<String, Object>> performerResources) {
+
+		Observation observation = (Observation) resourceMap.get("resource");
+		if (!(observation instanceof Observation)) {
+			return false;
+		}
+
+		List<Map<String, Object>> rrReportibiltyInformationList = new ArrayList<>();
+		processReferences(rrBundle, observation.getHasMember(), rrReportibiltyInformationList, null, null, false);
+
+		List<Map<String, Object>> validRRReportibiltyInformationList = new ArrayList<>();
+		for (Map<String, Object> rrReportibiltyInformationMap : rrReportibiltyInformationList) {
+			if (processRRReportabilityObservation(rrBundle, metaDataMap, rrReportibiltyInformationMap, observation, performerResources)) {
+				validRRReportibiltyInformationList.add(rrReportibiltyInformationMap);
+			}
+		}
+
+		if (!validRRReportibiltyInformationList.isEmpty()) {
+			observation.setHasMember(createReferenceList(validRRReportibiltyInformationList));
+			rrReportableInformationObs.addAll(validRRReportibiltyInformationList);
+			return true;
+		}
+		return false;
+	}
+
+	private boolean processRRReportabilityObservation(Bundle rrBundle, Map<String, Object> metaDataMap,
+													  Map<String, Object> rrReportibiltyInformationMap,
+													  Observation observation, List<Map<String, Object>> performerResources) {
+
+		Observation rrObservation = (Observation) rrReportibiltyInformationMap.get("resource");
+		if (!(rrObservation instanceof Observation)) {
+			return false;
+		}
+
+		List<Map<String, Object>> performerList = new ArrayList<>();
+		processPerformerReferences(rrBundle, rrObservation.getPerformer(), performerList, "RR7", "urn:oid:2.16.840.1.114222.4.5.232", true);
+
+		FilterDataService filterDataService = new FilterDataService();
+		List<Map<String, Object>> filteredPerformers = filterDataService.filterOrganizationsByJurisdictions(performerList, metaDataMap, "jurisdictionsOrganization");
+
+		if (!filteredPerformers.isEmpty()) {
+			rrObservation.setPerformer(createReferenceList(filteredPerformers));
+			performerResources.addAll(filteredPerformers);
+			return true;
+		}
+		return false;
+	}
+
+
+
 
 	public SectionComponent findSectionByCode(List<SectionComponent> sections, String code, String system) {
 		for (SectionComponent sectionComponent : sections) {
@@ -286,14 +305,33 @@ public class AnonymizerService {
 
 				if (resource instanceof Organization) {
 
-					Map<String, Object> resourceMap = new HashMap<>();
-					resourceMap.put("fullurl", fullurl.getValue());
-					resourceMap.put("id", id);
-					resourceMap.put("resource", resource);
-					resourceList.add(resourceMap);
-				}
-			}
+					if (!codCheckRequired) {
+						Map<String, Object> resourceMap = new HashMap<>();
+						resourceMap.put("fullurl", fullurl.getValue());
+						resourceMap.put("id", id);
+						resourceMap.put("resource", resource);
+						resourceList.add(resourceMap);
+					} else {
+						Organization organization = (Organization) resource;
 
+						List<CodeableConcept> codeableConcepts = organization.hasType() ? organization.getType() : null;
+
+						for (CodeableConcept codeableConcept : codeableConcepts) {
+							if (isCodeExistValid(codeableConcept, code, system)) {
+
+								Map<String, Object> resourceMap = new HashMap<>();
+								resourceMap.put("fullurl", fullurl.getValue());
+								resourceMap.put("id", id);
+								resourceMap.put("resource", resource);
+								resourceList.add(resourceMap);
+								break;
+							}
+
+						}
+					}
+				}
+
+			}
 		}
 	}
 
@@ -470,7 +508,8 @@ public class AnonymizerService {
 		Composition eicrComposition = (Composition) getResourceByType(eicrBundle, "Composition");
 
 		processPerformerReferences(eicrBundle, Collections.singletonList(eicrComposition.getCustodian()),
-				custodainOrganizationList, null, null, false);
+				custodainOrganizationList,"RR7" , "urn:oid:2.16.840.1.114222.4.5.232", false);
+
 
 		return custodainOrganizationList;
 	}
