@@ -16,7 +16,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 -->
-<xsl:stylesheet exclude-result-prefixes="sdtc lcg xsl cda fhir" version="2.0" xmlns="urn:hl7-org:v3" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" xmlns:sdtc="urn:hl7-org:sdtc" xmlns:uuid="http://www.uuid.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:stylesheet exclude-result-prefixes="sdtc lcg xsl cda fhir" version="2.0" xmlns="urn:hl7-org:v3" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com"
+    xmlns:sdtc="urn:hl7-org:sdtc" xmlns:uuid="http://www.uuid.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 
     <xsl:import href="fhir2cda-TS.xslt" />
     <xsl:import href="fhir2cda-CD.xslt" />
@@ -37,6 +38,120 @@ limitations under the License.
 
     <xsl:template match="fhir:Procedure" mode="entry">
         <xsl:call-template name="make-generic-procedure" />
+    </xsl:template>
+
+    <xsl:template name="make-planned-procedure">
+        <xsl:param name="pTriggerExtension" />
+        <!--<xsl:param name="pMapping" />-->
+        
+        <xsl:variable name="vMoodCode">
+            <xsl:apply-templates select="fhir:intent" />
+        </xsl:variable>
+        
+        <entry>
+            <procedure classCode="PROC" moodCode="{$vMoodCode}">
+                <xsl:if test="fhir:doNotPerform/@value = 'true'">
+                    <xsl:attribute name="negationInd" select="'true'" />
+                </xsl:if>
+                <!-- templateId -->
+                <xsl:comment select="' [C-CDA R2.1] Planned Procedure (V2) '" />
+                <templateId root="2.16.840.1.113883.10.20.22.4.41" extension="2014-06-09" />
+
+                <xsl:if test="$pTriggerExtension">
+                    <xsl:comment select="' [eCR R2D3] Initial Case Report Trigger Code Planned Procedure '" />
+                    <templateId root="2.16.840.1.113883.10.20.15.2.3.42" extension="2021-01-01" />
+                </xsl:if>
+
+                <id root="{lower-case(uuid:get-uuid())}" />
+                <xsl:apply-templates select="fhir:code">
+                    <xsl:with-param name="pTriggerExtension" select="$pTriggerExtension" />
+                </xsl:apply-templates>
+
+                <xsl:apply-templates mode="text" select="fhir:code/fhir:text" />
+                <!-- C-CDA Planned Procedure has statusCode hard coded to 'active' -->
+                <statusCode code="active" />
+                <xsl:for-each select="fhir:bodySite/fhir:coding">
+                    <targetSiteCode>
+                        <xsl:attribute name="code">
+                            <xsl:value-of select="./fhir:code/@value" />
+                        </xsl:attribute>
+                        <xsl:variable name="vBodySiteSystemUri" select="./fhir:system/@value" />
+                        <xsl:choose>
+                            <xsl:when test="$gvMapping/map[@uri = $vBodySiteSystemUri]">
+                                <xsl:attribute name="codeSystem">
+                                    <xsl:value-of select="$gvMapping/map[@uri = $vBodySiteSystemUri][1]/@oid" />
+                                </xsl:attribute>
+                            </xsl:when>
+                        </xsl:choose>
+                        <xsl:apply-templates mode="display" select="./fhir:display" />
+                    </targetSiteCode>
+                </xsl:for-each>
+                <xsl:choose>
+                    <xsl:when test="fhir:encounter">
+                        <entryRelationship typeCode="RSON">
+                            <encounter classCode="ENC" moodCode="INT">
+                                <xsl:comment select="' Planned  Encounter V2 '" />
+                                <templateId root="2.16.840.1.113883.10.20.22.4.40" />
+                                <id root="{lower-case(uuid:get-uuid())}" />
+                                <xsl:variable name="referenceURI">
+                                    <xsl:call-template name="resolve-to-full-url">
+                                        <xsl:with-param name="referenceURI" select="fhir:encounter/fhir:reference/@value" />
+                                    </xsl:call-template>
+                                </xsl:variable>
+                                <xsl:comment>Processing entry <xsl:value-of select="$referenceURI" /></xsl:comment>
+                                <xsl:variable name="vTest" select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]" />
+                                <xsl:for-each select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]">
+                                    <xsl:apply-templates mode="serviceRequest" select="fhir:resource/fhir:*" />
+                                </xsl:for-each>
+                            </encounter>
+                        </entryRelationship>
+                    </xsl:when>
+                </xsl:choose>
+                <!-- ServiceRequest.performer -->
+                <xsl:for-each select="fhir:performer">
+                    <xsl:for-each select="fhir:reference">
+                        <xsl:variable name="referenceURI">
+                            <xsl:call-template name="resolve-to-full-url">
+                                <xsl:with-param name="referenceURI" select="@value" />
+                            </xsl:call-template>
+                        </xsl:variable>
+                        <xsl:comment>Performer <xsl:value-of select="$referenceURI" /></xsl:comment>
+                        <xsl:for-each select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]/fhir:resource/*">
+                            <xsl:call-template name="make-performer" />
+                        </xsl:for-each>
+                    </xsl:for-each>
+                </xsl:for-each>
+                <!-- author (C-CDA Author Participation template) -->
+                <xsl:choose>
+                    <xsl:when test="fhir:authoredOn and not(fhir:requester)">
+                        <author>
+                            <templateId root="2.16.840.1.113883.10.20.22.4.119" />
+                            <xsl:variable name="vAuthoredOn">
+                                <xsl:call-template name="Date2TS">
+                                    <xsl:with-param name="date" select="fhir:authoredOn/@value" />
+                                    <xsl:with-param name="includeTime" select="true()" />
+                                </xsl:call-template>
+                            </xsl:variable>
+                            <time>
+                                <xsl:attribute name="value">
+                                    <xsl:call-template name="Date2TS">
+                                        <xsl:with-param name="date" select="fhir:authoredOn/@value" />
+                                        <xsl:with-param name="includeTime" select="true()" />
+                                    </xsl:call-template>
+                                </xsl:attribute>
+                            </time>
+                            <assignedAuthor>
+                                <id nullFlavor="NI" />
+                            </assignedAuthor>
+                        </author>
+                    </xsl:when>
+                    <xsl:when test="fhir:requester">
+                        <xsl:apply-templates select="fhir:requester" />
+                    </xsl:when>
+                </xsl:choose>
+            </procedure>
+        </entry>
+
     </xsl:template>
 
     <!-- MD: handle procedure entry in Medical Equipment Section -->
@@ -120,6 +235,7 @@ limitations under the License.
                 <xsl:apply-templates select="fhir:status" />
                 <!-- effectiveTime -->
                 <xsl:apply-templates select="fhir:performedPeriod" />
+                <xsl:apply-templates select="fhir:performedDateTime" />
                 <!-- priorityCode -->
                 <!-- value (nullFlavor as FHIR doesn't have this) -->
                 <!--<value nullFlavor="NA" /> -->
@@ -127,6 +243,18 @@ limitations under the License.
                 <!-- targetSiteCode -->
                 <!-- specimen -->
                 <!-- performer -->
+                <xsl:for-each select="fhir:performer">
+                    <xsl:for-each select="fhir:actor">
+                        <xsl:variable name="referenceURI">
+                            <xsl:call-template name="resolve-to-full-url">
+                                <xsl:with-param name="referenceURI" select="fhir:reference/@value" />
+                            </xsl:call-template>
+                        </xsl:variable>
+                        <xsl:for-each select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]">
+                            <xsl:apply-templates select="fhir:resource/fhir:*" mode="event-performer" />
+                        </xsl:for-each>
+                    </xsl:for-each>
+                </xsl:for-each>
                 <!-- author -->
                 <!-- participant/ProductInstance -->
                 <xsl:for-each select="fhir:focalDevice/fhir:manipulated">
@@ -164,7 +292,7 @@ limitations under the License.
                 <xsl:if test="fhir:identifier">
                     <xsl:apply-templates select="fhir:identifier" />
                 </xsl:if>
-                <xsl:if test="not( fhir:udiCarrier or fhir:identifier)">
+                <xsl:if test="not(fhir:udiCarrier or fhir:identifier)">
                     <id nullFlavor="NI" />
                 </xsl:if>
 

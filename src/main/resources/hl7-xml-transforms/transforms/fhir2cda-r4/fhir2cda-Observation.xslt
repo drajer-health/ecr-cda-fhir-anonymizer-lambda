@@ -17,12 +17,12 @@ limitations under the License.
 
 -->
 <xsl:stylesheet exclude-result-prefixes="sdtc lcg xsl cda fhir" version="2.0" xmlns="urn:hl7-org:v3" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com"
-    xmlns:sdtc="urn:hl7-org:sdtc" xmlns:uuid="http://www.uuid.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+    xmlns:sdtc="urn:hl7-org:sdtc" xmlns:uuid="http://www.uuid.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+    xmlns:xhtml="http://www.w3.org/1999/xhtml">
     <xsl:import href="fhir2cda-TS.xslt" />
     <xsl:import href="fhir2cda-CD.xslt" />
     <xsl:import href="fhir2cda-utility.xslt" />
     <xsl:import href="native-xslt-uuid.xslt" />
-
     <!-- ********************************************************************* -->
     <!-- Generic Observation Processing                                        -->
     <!-- There are 3 different options (modes) for processing Observations:
@@ -35,12 +35,9 @@ limitations under the License.
     <!-- Generic Observation entry (no contained hasMember - if contained hasMember then Organizer)-->
     <!-- These are contained in a Section-->
     <!-- SG 20240308: Sometimes there are multiple categories - only going to use first one -->
-    <xsl:template match="fhir:Observation[count(fhir:hasMember) = 0][not(fhir:category[1]/fhir:coding[fhir:code/@value = 'laboratory'])]" mode="entry">
+    <!--<xsl:template match="fhir:Observation[count(fhir:hasMember) = 0][not(fhir:category[1]/fhir:coding[fhir:code/@value = 'laboratory'])]" mode="entry">-->
+    <xsl:template match="fhir:Observation[count(fhir:hasMember) = 0][not(fhir:category/fhir:coding[fhir:code/@value = 'laboratory'])]" mode="entry">
         <xsl:param name="generated-narrative">additional</xsl:param>
-        <!-- Variable for identification of IG - moved out of Global var because XSpec can't deal with global vars -->
-        <xsl:variable name="vCurrentIg">
-            <xsl:call-template name="get-current-ig" />
-        </xsl:variable>
         <entry>
             <xsl:if test="$generated-narrative = 'generated'">
                 <xsl:attribute name="typeCode">DRIV</xsl:attribute>
@@ -51,7 +48,7 @@ limitations under the License.
                 <xsl:when test="fhir:category[1]/fhir:coding[fhir:system/@value = 'http://terminology.hl7.org/CodeSystem/observation-category']/fhir:code/@value = 'vital-signs'">
                     <xsl:choose>
                         <!-- PCP creates the vital signs in a Health Concern -->
-                        <xsl:when test="$vCurrentIg = 'PCP'">
+                        <xsl:when test="$gvCurrentIg = 'PCP'">
                             <xsl:call-template name="make-vitalsign-in-health-concern" />
                         </xsl:when>
                         <!-- All others are going to be standalone inside an Organizer -->
@@ -77,7 +74,6 @@ limitations under the License.
             </xsl:choose>
         </entry>
     </xsl:template>
-
     <!-- Generic Observation entryRelationship (no contained hasMember - if contained hasMember then Organizer)-->
     <!-- These are contained in another ClinicalStatement -->
     <xsl:template match="fhir:Observation[count(fhir:hasMember) = 0]" mode="entry-relationship">
@@ -86,7 +82,6 @@ limitations under the License.
             <xsl:call-template name="make-generic-observation" />
         </entryRelationship>
     </xsl:template>
-
     <!-- Generic Observation component (no contained hasMember - if contained hasMember then Organizer)-->
     <!-- These are contained in an Organizer -->
     <!-- MD: split into three part, since the blood pressure has its own component -->
@@ -119,7 +114,6 @@ limitations under the License.
             </xsl:otherwise>
         </xsl:choose>
     </xsl:template>
-
     <!-- Generic Component -->
     <xsl:template match="fhir:component">
         <observation classCode="OBS" moodCode="EVN">
@@ -141,27 +135,42 @@ limitations under the License.
                 </xsl:otherwise>
             </xsl:choose>
             <!-- value -->
-            <xsl:for-each select="fhir:valueCodeableConcept">
-                <xsl:apply-templates select=".">
-                    <xsl:with-param name="pElementName" select="'value'" />
-                    <xsl:with-param name="pXSIType" select="'CD'" />
-                </xsl:apply-templates>
-            </xsl:for-each>
-            <xsl:for-each select="fhir:valueString">
-                <value xsi:type="ST">
-                    <xsl:value-of select="@value" />
-                </value>
-            </xsl:for-each>
-            <xsl:apply-templates select="fhir:valueQuantity" />
-            <xsl:apply-templates select="fhir:valueDateTime">
-                <xsl:with-param name="pElementName" select="'value'" />
-                <xsl:with-param name="pXSIType" select="'TS'" />
-            </xsl:apply-templates>
+            <xsl:choose>
+                <xsl:when test="fhir:valueCodeableConcept">
+                    <xsl:for-each select="fhir:valueCodeableConcept">
+                        <xsl:apply-templates select=".">
+                            <xsl:with-param name="pElementName" select="'value'" />
+                            <xsl:with-param name="pXSIType" select="'CD'" />
+                        </xsl:apply-templates>
+                    </xsl:for-each>
+                </xsl:when>
+                <xsl:when test="fhir:valueString">
+                    <xsl:for-each select="fhir:valueString">
+                        <value xsi:type="ST">
+                            <xsl:value-of select="@value" />
+                        </value>
+                    </xsl:for-each>
+                </xsl:when>
+                <xsl:when test="fhir:valueQuantity">
+                    <xsl:apply-templates select="fhir:valueQuantity" />
+                </xsl:when>
+                <xsl:when test="fhir:valueDateTime">
+                    <xsl:apply-templates select="fhir:valueDateTime">
+                        <xsl:with-param name="pElementName" select="'value'" />
+                        <xsl:with-param name="pXSIType" select="'TS'" />
+                    </xsl:apply-templates>
+                </xsl:when>
+                <xsl:when test="fhir:dataAbsentReason">
+                    <value xsi:type="CD">
+                        <xsl:apply-templates select="fhir:dataAbsentReason" mode="data-absent-reason" />
+                    </value>
+                </xsl:when>
+            </xsl:choose>
             <!-- interpretationCode -->
             <xsl:for-each select="fhir:interpretation">
-                <xsl:call-template name="CodeableConcept2CD">
+                <xsl:apply-templates select=".">
                     <xsl:with-param name="pElementName">interpretationCode</xsl:with-param>
-                </xsl:call-template>
+                </xsl:apply-templates>
             </xsl:for-each>
             <xsl:for-each select="fhir:component">
                 <entryRelationship> </entryRelationship>
@@ -169,7 +178,6 @@ limitations under the License.
             <!-- reference -->
         </observation>
     </xsl:template>
-
     <!-- Named template: make-generic-observation -->
     <!-- This should cover most cases - there are still missing elements, but
        add them as we need them 
@@ -196,7 +204,7 @@ limitations under the License.
                 </xsl:when>
                 <!-- SG 20240307: Catch any social history observations that don't have a LOINC code and add a empty LOINC code -->
                 <!-- SG 20240308: Sometimes there are multiple categories - only going to use first one -->
-               <xsl:when test="fhir:category[1]/fhir:coding/fhir:code/@value = 'social-history' and not(fhir:code/fhir:coding/fhir:system/@value = 'http://loinc.org')">
+                <xsl:when test="fhir:category[1]/fhir:coding/fhir:code/@value = 'social-history' and not(fhir:code/fhir:coding/fhir:system/@value = 'http://loinc.org')">
                     <xsl:variable name="vCodeWithLOINC">
                         <code xmlns="http://hl7.org/fhir">
                             <xsl:for-each select="fhir:code/fhir:coding">
@@ -220,13 +228,17 @@ limitations under the License.
             <!-- negationInd -->
             <!-- derivationExpr -->
             <!-- text -->
+            <xsl:call-template name="get-text" />
             <!-- statusCode -->
             <xsl:apply-templates select="fhir:status" />
             <!-- effectiveTime -->
             <!-- MD: add fhir:issued -->
             <xsl:choose>
-                <xsl:when test="fhir:effectiveDateTime | fhir:effectivePeriod | fhir:effectiveTime | fhir:effectiveInstant | fhir:issued">
-                    <xsl:apply-templates select="fhir:effectiveDateTime | fhir:effectivePeriod | fhir:effectiveTime | fhir:effectiveInstant | fhir:issued" />
+                <xsl:when test="fhir:effectiveDateTime | fhir:effectivePeriod | fhir:effectiveTime | fhir:effectiveInstant">
+                    <xsl:apply-templates select="fhir:effectiveDateTime | fhir:effectivePeriod | fhir:effectiveTime | fhir:effectiveInstant" />
+                </xsl:when>
+                <xsl:when test="fhir:issued">
+                    <xsl:apply-templates select="fhir:issued" />
                 </xsl:when>
                 <xsl:otherwise>
                     <effectiveTime nullFlavor="NI" />
@@ -236,44 +248,144 @@ limitations under the License.
             <!-- repeatNumber -->
             <!-- languageCode -->
             <!-- value -->
-            <xsl:for-each select="fhir:valueCodeableConcept">
-                <xsl:apply-templates select=".">
-                    <xsl:with-param name="pElementName" select="'value'" />
-                    <xsl:with-param name="pXSIType" select="'CD'" />
-                    <xsl:with-param name="pTriggerExtension" select="$vTriggerExtension" />
-                </xsl:apply-templates>
-            </xsl:for-each>
-            <!-- MD: add valueBollean -->
-            <xsl:for-each select="fhir:valueBoolean">
-                <value xsi:type="BL">
-                    <xsl:attribute name="value">
-                        <xsl:value-of select="@value" />
-                    </xsl:attribute>
-                </value>
-            </xsl:for-each>
-            <xsl:for-each select="fhir:valueString">
-                <value xsi:type="ST">
-                    <xsl:value-of select="@value" />
-                </value>
-            </xsl:for-each>
-            <xsl:apply-templates select="fhir:valueQuantity" />
-            <xsl:apply-templates select="fhir:valueDateTime">
-                <xsl:with-param name="pElementName" select="'value'" />
-                <xsl:with-param name="pXSIType" select="'TS'" />
-            </xsl:apply-templates>
+            <xsl:choose>
+                <!-- Check and apply templates for valueCodeableConcept -->
+                <xsl:when test="fhir:valueCodeableConcept">
+                    <xsl:for-each select="fhir:valueCodeableConcept">
+                        <xsl:apply-templates select=".">
+                            <xsl:with-param name="pElementName" select="'value'" />
+                            <xsl:with-param name="pXSIType" select="'CD'" />
+                            <xsl:with-param name="pTriggerExtension" select="$vTriggerExtension" />
+                        </xsl:apply-templates>
+                    </xsl:for-each>
+                </xsl:when>
+                <!-- Check and process valueBoolean -->
+                <xsl:when test="fhir:valueBoolean">
+                    <xsl:for-each select="fhir:valueBoolean">
+                        <value xsi:type="BL">
+                            <xsl:choose>
+                                <xsl:when test="fhir:extension/@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason'">
+                                    <xsl:apply-templates select="fhir:extension[@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason']" mode="attribute-only" />
+                                </xsl:when>
+                                <xsl:otherwise>
+                                    <xsl:attribute name="value">
+                                        <xsl:value-of select="@value" />
+                                    </xsl:attribute>
+                                </xsl:otherwise>
+                            </xsl:choose>
+                        </value>
+                    </xsl:for-each>
+                </xsl:when>
+                <!-- Check and process valueString -->
+                <xsl:when test="fhir:valueString">
+                    <xsl:for-each select="fhir:valueString">
+                        <xsl:choose>
+                            <xsl:when test="fhir:extension/@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason'">
+                                <xsl:apply-templates select="fhir:extension[@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason']" mode="attribute-only" />
+                            </xsl:when>
+                            <xsl:otherwise>
+                                <value xsi:type="ST">
+                                    <xsl:value-of select="@value" />
+                                </value>
+                            </xsl:otherwise>
+                        </xsl:choose>
+                    </xsl:for-each>
+                </xsl:when>
+                <!-- Check and apply templates for valueQuantity -->
+                <xsl:when test="fhir:valueQuantity">
+                    <xsl:apply-templates select="fhir:valueQuantity" />
+                </xsl:when>
+                <!-- Check and apply templates for valueDateTime -->
+                <xsl:when test="fhir:valueDateTime">
+                    <xsl:apply-templates select="fhir:valueDateTime">
+                        <xsl:with-param name="pElementName" select="'value'" />
+                        <xsl:with-param name="pXSIType" select="'TS'" />
+                    </xsl:apply-templates>
+                </xsl:when>
+                <!-- Check and apply templates for valuePeriod -->
+                <xsl:when test="fhir:valuePeriod">
+                    <xsl:apply-templates select="fhir:valuePeriod">
+                        <xsl:with-param name="pElementName" select="'value'" />
+                        <xsl:with-param name="pXSIType" select="'IVL_TS'" />
+                    </xsl:apply-templates>
+                </xsl:when>
+                <!-- Check and apply templates for valueInteger -->
+                <xsl:when test="fhir:valueInteger/@value">
+                    <value xsi:type="INT" value="{fhir:valueInteger/@value}" />
+                </xsl:when>
+                <xsl:when test="fhir:dataAbsentReason">
+                    <value xsi:type="CD">
+                        <xsl:apply-templates select="fhir:dataAbsentReason" mode="data-absent-reason" />
+                    </value>
+                </xsl:when>
+                <!-- Default case: none of the expected elements are present -->
+                <xsl:otherwise>
+                    <value xsi:type="CD" nullFlavor="NI" />
+                </xsl:otherwise>
+            </xsl:choose>
             <!-- interpretationCode -->
-            <xsl:for-each select="fhir:interpretation">
-                <xsl:call-template name="CodeableConcept2CD">
-                    <xsl:with-param name="pElementName">interpretationCode</xsl:with-param>
-                </xsl:call-template>
-            </xsl:for-each>
+            <xsl:apply-templates select="fhir:interpretation">
+                <xsl:with-param name="pElementName">interpretationCode</xsl:with-param>
+            </xsl:apply-templates>
+            <!-- if this is a trigger code template and the value is a string and there is no interpretation, add interpretationCode -->
+            <xsl:if test="$vTriggerExtension and fhir:valueString and not(fhir:interpretation)">
+                <interpretationCode nullFlavor="NI" />
+            </xsl:if>
             <!-- methodCode -->
             <xsl:apply-templates select="fhir:method">
                 <xsl:with-param name="pElementName" select="'methodCode'" />
             </xsl:apply-templates>
             <!-- targetSiteCode -->
-            <!-- precondition -->
+            <xsl:apply-templates select="fhir:bodySite" />
+            <!-- subject/relatedSubject/subject -->
+            <!-- Only check if this is an ODH Past or Present Job profile, must be a relatedPerson and only allowed one (it's possible to have multiple in FHIR) just take the first one -->
+            <xsl:if test="fhir:code/fhir:coding/fhir:code/@value = '11341-5' and fhir:focus">
+                <xsl:for-each select="fhir:focus[1]">
+                    <xsl:variable name="referenceURI">
+                        <xsl:call-template name="resolve-to-full-url">
+                            <xsl:with-param name="referenceURI" select="fhir:reference/@value" />
+                        </xsl:call-template>
+                    </xsl:variable>
+                    <xsl:variable name="vFocusReference" select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]/fhir:resource/fhir:*" />
+                    <xsl:if test="$vFocusReference/local-name() = 'RelatedPerson'">
+                        <subject>
+                            <relatedSubject classCode="PRS">
+                                <!-- code -->
+                                <xsl:apply-templates select="$vFocusReference/fhir:relationship" />
+                                <!-- addr -->
+                                <xsl:apply-templates select="$vFocusReference/fhir:address" />
+                                <!-- telecom -->
+                                <xsl:apply-templates select="$vFocusReference/fhir:telecom" />
+                                <subject>
+                                    <!-- name -->
+                                    <xsl:apply-templates select="$vFocusReference/fhir:name" />
+                                    <!-- administrativeGenderCode -->
+                                    <xsl:apply-templates select="$vFocusReference/fhir:gender" />
+                                    <!-- birthTime -->
+                                    <xsl:apply-templates select="$vFocusReference/fhir:birthDate">
+                                        <xsl:with-param name="pElement" select="fhir:birthDate" />
+                                    </xsl:apply-templates>
+                                </subject>
+                            </relatedSubject>
+                        </subject>
+                    </xsl:if>
+                </xsl:for-each>
+            </xsl:if>
+            <!-- specimen -->
             <!-- performer -->
+            <xsl:for-each select="fhir:performer">
+                <xsl:for-each select="fhir:reference">
+                    <xsl:variable name="referenceURI">
+                        <xsl:call-template name="resolve-to-full-url">
+                            <xsl:with-param name="referenceURI" select="@value" />
+                        </xsl:call-template>
+                    </xsl:variable>
+                    <xsl:comment>Performer <xsl:value-of select="$referenceURI" /></xsl:comment>
+                    <xsl:for-each select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]/fhir:resource/*">
+                        <xsl:call-template name="make-performer" />
+                    </xsl:for-each>
+                </xsl:for-each>
+            </xsl:for-each>
             <xsl:for-each select="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/date-determined-extension']">
                 <performer>
                     <xsl:comment select="' Pregnancy Status Determination Date '" />
@@ -299,33 +411,48 @@ limitations under the License.
                 </performer>
             </xsl:for-each>
             <!-- author -->
-            <xsl:for-each select="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/date-recorded-extension']">
-                <author>
-                    <xsl:comment select="' Pregnancy Status Recorded Date '" />
-                    <xsl:apply-templates select="fhir:valueDateTime">
-                        <xsl:with-param name="pElementName" select="'time'" />
-                    </xsl:apply-templates>
-                    <assignedAuthor>
-                        <id nullFlavor="NA" />
-                    </assignedAuthor>
-                </author>
-            </xsl:for-each>
-            <!-- MD add this for now, need to know there is any difference between 
+            <xsl:choose>
+                <xsl:when test="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/date-recorded-extension']">
+                    <xsl:for-each select="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/date-recorded-extension']">
+                        <author>
+                            <xsl:comment select="' Pregnancy Status Recorded Date '" />
+                            <xsl:apply-templates select="fhir:valueDateTime">
+                                <xsl:with-param name="pElementName" select="'time'" />
+                            </xsl:apply-templates>
+                            <assignedAuthor>
+                                <id nullFlavor="NA" />
+                            </assignedAuthor>
+                        </author>
+                    </xsl:for-each>
+                </xsl:when>
+                <!-- MD add this for now, need to know there is any difference between 
                 date-recorded-extension with us-ph-date-recorded-extension -->
-            <xsl:for-each select="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-date-recorded-extension']">
-                <author>
-                    <xsl:comment select="' Pregnancy Status Recorded Date '" />
-                    <xsl:apply-templates select="fhir:valueDateTime">
-                        <xsl:with-param name="pElementName" select="'time'" />
-                    </xsl:apply-templates>
-                    <assignedAuthor>
-                        <id nullFlavor="NA" />
-                    </assignedAuthor>
-                </author>
-            </xsl:for-each>
+                <xsl:when test="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-date-recorded-extension']">
+                    <xsl:for-each select="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-date-recorded-extension']">
+                        <author>
+                            <xsl:comment select="' Pregnancy Status Recorded Date '" />
+                            <xsl:apply-templates select="fhir:valueDateTime">
+                                <xsl:with-param name="pElementName" select="'time'" />
+                            </xsl:apply-templates>
+                            <assignedAuthor>
+                                <id nullFlavor="NA" />
+                            </assignedAuthor>
+                        </author>
+                    </xsl:for-each>
+                </xsl:when>
+                <xsl:when test="fhir:issued">
+                    <author>
+                        <xsl:comment select="' Issued Date '" />
+                        <xsl:apply-templates select="fhir:issued">
+                            <xsl:with-param name="pElementName" select="'time'" />
+                        </xsl:apply-templates>
+                        <assignedAuthor>
+                            <id nullFlavor="NA" />
+                        </assignedAuthor>
+                    </author>
+                </xsl:when>
+            </xsl:choose>
             <!-- informant -->
-            <!-- subject -->
-            <!-- specimen -->
             <!-- participant -->
             <xsl:for-each select="fhir:extension[@url = 'http://hl7.org/fhir/us/odh/StructureDefinition/odh-Employer-extension']/fhir:valueReference">
                 <!-- Put the Organization into a variable -->
@@ -367,13 +494,12 @@ limitations under the License.
                             </participantRole>
                         </participant>
                     </xsl:when>-->
-                    <!-- MD -->
+                    <!-- Estimated Gestational Age of Pregnancy -->
                     <xsl:when test="fhir:code/fhir:coding/fhir:code/@value = '53691-2'">
                         <entryRelationship typeCode="REFR">
                             <observation classCode="OBS" moodCode="EVN">
-                                <xsl:comment select="' [C-CDA PREG] Estimated Gestational Age of Pregnancy '" />
-                                <templateId extension="2020-04-01" root="2.16.840.1.113883.10.20.22.4.280" />
-                                <id root="{lower-case(uuid:get-uuid())}" />
+                                <xsl:call-template name="get-template-id" />
+                                <xsl:call-template name="get-id" />
                                 <xsl:apply-templates select="fhir:code" />
                                 <statusCode code="completed" />
                                 <xsl:apply-templates select="fhir:extension/fhir:valueDateTime">
@@ -383,15 +509,19 @@ limitations under the License.
                             </observation>
                         </entryRelationship>
                     </xsl:when>
-                    <xsl:when test="fhir:code/fhir:coding/fhir:code/@value = '57064-8'">
+                    <!-- Estimated Date of Delivery -->
+                    <xsl:when test="fhir:code/fhir:coding/fhir:code/@value = ('11778-8', '11779-6', '11780-4', '11781-2', '53692-0', '53694-6', '57063-0', '57064-8')">
                         <entryRelationship typeCode="REFR">
                             <observation classCode="OBS" moodCode="EVN">
-                                <xsl:comment select="' [C-CDA EDD] Delivery date Estimated from date fundal height reaches umb '" />
-                                <templateId extension="2020-04-01" root="2.16.840.1.113883.10.20.22.4.297" />
-                                <xsl:call-template name="get-id" />
+                                <xsl:call-template name="get-template-id" />
+                                <xsl:apply-templates select="fhir:id" />
                                 <xsl:apply-templates select="fhir:code" />
                                 <statusCode code="completed" />
-                                <xsl:apply-templates select="fhir:valueDateTime" />
+                                <xsl:apply-templates select="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-date-determined-extension']/fhir:valueDateTime" />
+                                <xsl:apply-templates select="fhir:valueDateTime">
+                                    <xsl:with-param name="pElementName">value</xsl:with-param>
+                                    <xsl:with-param name="pXSIType">TS</xsl:with-param>
+                                </xsl:apply-templates>
                             </observation>
                         </entryRelationship>
                     </xsl:when>
@@ -426,9 +556,10 @@ limitations under the License.
             <!-- If this is a Pregnancy Observation add a matching Pregnancy Outcome Observation -->
             <xsl:if test="fhir:meta/fhir:profile/@value = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-pregnancy-status-observation'">
                 <xsl:variable name="vPregnancyStatusFullUrl" select="../../fhir:fullUrl/@value" />
-                <xsl:for-each select="//fhir:Observation[fhir:meta/fhir:profile/@value = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-pregnancy-outcome-observation']">
-                    <xsl:variable name="vRelatedPregnancyStatusFullUrl" select="fhir:focus/fhir:reference/@value" />
-                    <xsl:if test="$vPregnancyStatusFullUrl = $vRelatedPregnancyStatusFullUrl">
+                <xsl:for-each
+                    select="//fhir:Observation[fhir:code/fhir:coding/fhir:code/@value = '63893-2'] | //fhir:Observation[fhir:meta/fhir:profile/@value = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-pregnancy-outcome-observation']">
+                    <xsl:variable name="vRelatedPregnancyStatusUrl" select="fhir:focus/fhir:reference/@value" />
+                    <xsl:if test="ends-with($vPregnancyStatusFullUrl, $vRelatedPregnancyStatusUrl)">
                         <entryRelationship typeCode="COMP">
                             <sequenceNumber value="{fhir:component[fhir:code/fhir:coding/fhir:code/@value='73771-8']/fhir:valueInteger/@value}" />
                             <xsl:call-template name="make-generic-observation" />
@@ -436,226 +567,36 @@ limitations under the License.
                     </xsl:if>
                 </xsl:for-each>
             </xsl:if>
+            <!-- If this is an Emergency Outbreak Information Observation and there are hasMembers -->
+            <xsl:if test="fhir:meta/fhir:profile/@value = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-emergency-outbreak-information' and fhir:hasMember">
+                <!--<xsl:for-each select="fhir:hasMember">
+                    <entryRelationship typeCode="REFR">-->
+                <xsl:for-each select="fhir:hasMember/fhir:reference">
+                    <xsl:variable name="referenceURI">
+                        <xsl:call-template name="resolve-to-full-url">
+                            <xsl:with-param name="referenceURI" select="@value" />
+                        </xsl:call-template>
+                    </xsl:variable>
+                    <xsl:for-each select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]/fhir:resource/fhir:*">
+                        <entryRelationship typeCode="REFR">
+                            <xsl:call-template name="make-generic-observation" />
+                        </entryRelationship>
+                        <!--<xsl:apply-templates select="fhir:resource/fhir:*" mode="component">
+                            <xsl:with-param name="generated-narrative" />
+                        </xsl:apply-templates>-->
+                    </xsl:for-each>
+                </xsl:for-each>
+                <!--</entryRelationship>
+                </xsl:for-each>-->
+            </xsl:if>
             <!-- reference -->
+            <!-- precondition -->
             <!-- referenceRange -->
             <xsl:for-each select="fhir:referenceRange">
                 <xsl:call-template name="get-reference-range" />
             </xsl:for-each>
         </observation>
     </xsl:template>
-
-    <!-- Generic Questionnaire Item Observation -->
-    <xsl:template
-        match="fhir:item[fhir:linkId/@value = ('risk-factor-birth-weight', 'risk-factor-gestational-age', 'inborn-outborn-observation', 'criteria-used', 'died', 'los-contributed-to-death')][fhir:answer]">
-        <xsl:variable name="vLinkId" select="fhir:linkId/@value" />
-        <observation classCode="OBS" moodCode="EVN">
-            <!-- @negationInd -->
-            <xsl:attribute name="negationInd" select="'false'" />
-            <!-- templateId -->
-            <xsl:call-template name="get-template-id" />
-            <id nullFlavor="NA" />
-            <code>
-                <xsl:apply-templates select="$gvHaiQuestionnaire/fhir:Questionnaire//fhir:item[fhir:linkId/@value = $vLinkId]/fhir:code" />
-                <!--        <xsl:apply-templates select="$gvHaiQuestionnaire/fhir:Questionnaire//fhir:item[fhir:linkId/@value = $vLinkId]/fhir:code" />-->
-            </code>
-            <statusCode code="completed" />
-            <effectiveTime nullFlavor="NA" />
-            <xsl:apply-templates select="fhir:answer" />
-        </observation>
-    </xsl:template>
-
-    <!-- Assertion Pattern Questionnaire Item Observation -->
-    <xsl:template match="fhir:item[fhir:linkId/@value = ('risk-factor-central-line', 'event-type')][fhir:answer]">
-        <xsl:variable name="vLinkId" select="fhir:linkId/@value" />
-        <observation classCode="OBS" moodCode="EVN">
-            <!-- @negationInd -->
-            <xsl:choose>
-                <xsl:when test="fhir:answer/fhir:valueBoolean/@value = 'true'">
-                    <xsl:attribute name="negationInd" select="'false'" />
-                </xsl:when>
-                <xsl:when test="fhir:answer/fhir:valueBoolean/@value = 'false'">
-                    <xsl:attribute name="negationInd" select="'true'" />
-                </xsl:when>
-            </xsl:choose>
-            <!-- templateId -->
-            <xsl:call-template name="get-template-id" />
-            <!-- id -->
-            <xsl:choose>
-                <xsl:when test="$vLinkId = ('event-type')">
-                    <xsl:call-template name="get-id">
-                        <xsl:with-param name="pNoNullAllowed" select="true()" />
-                    </xsl:call-template>
-                </xsl:when>
-                <xsl:otherwise>
-                    <id nullFlavor="NA" />
-                </xsl:otherwise>
-            </xsl:choose>
-            <code code="ASSERTION" codeSystem="2.16.840.1.113883.5.4" />
-            <statusCode code="completed" />
-            <effectiveTime nullFlavor="NA" />
-            <xsl:choose>
-                <xsl:when test="$vLinkId = ('event-type')">
-                    <xsl:apply-templates select="fhir:answer" />
-                </xsl:when>
-                <xsl:otherwise>
-                    <value xsi:type="CD">
-                        <xsl:apply-templates select="$gvHaiQuestionnaire/fhir:Questionnaire//fhir:item[fhir:linkId/@value = $vLinkId]/fhir:code" />
-                    </value>
-                </xsl:otherwise>
-            </xsl:choose>
-        </observation>
-    </xsl:template>
-
-    <!-- ********************************************************************* -->
-    <!-- Suppress Questionnaire Item Processing                                -->
-    <!-- ********************************************************************* -->
-    <xsl:template match="fhir:item[fhir:linkId/@value = 'gestational-age-known'][fhir:answer/fhir:valueBoolean/@value = 'true']" />
-
-    <!-- Suppress item discharge-date - used in EncompassingEncounter -->
-    <xsl:template match="fhir:item[fhir:linkId/@value = 'discharge-date']" />
-
-    <!-- ********************************************************************* -->
-    <!-- Specific Observation Processing                                       -->
-    <!-- ********************************************************************* -->
-
-    <!-- Gestational Age Known -->
-    <xsl:template match="fhir:item[fhir:linkId/@value = 'gestational-age-known'][fhir:answer/fhir:valueBoolean/@value = 'false']">
-        <!-- Special processing for this item - if this item is false then the next item (risk-factor-gestational-age) is not enabled
-         But if this is false, then the Gestataional Age at Birth template needs to be created wtih a value/@nullFlavor='UNK'
-         So we are going to set our linkId='risk-factor-gestational-age' and build that template-->
-        <xsl:variable name="vLinkId" select="'risk-factor-gestational-age'" />
-        <observation classCode="OBS" moodCode="EVN">
-            <xsl:attribute name="negationInd" select="'false'" />
-            <!-- templateId -->
-            <xsl:call-template name="get-template-id" />
-            <id nullFlavor="NA" />
-            <code>
-                <xsl:apply-templates select="$gvHaiQuestionnaire/fhir:Questionnaire//fhir:item[fhir:linkId/@value = $vLinkId]/fhir:code" />
-            </code>
-            <statusCode code="completed" />
-            <value nullFlavor="UNK" />
-        </observation>
-    </xsl:template>
-
-    <!-- SG 20220213: Added for HAI LTC -->
-    <!-- Transfer From Acute Care Facility -->
-    <xsl:template match="fhir:item[fhir:linkId/@value = 'transfer-from-acute-care-facility']">
-        <xsl:param name="pEntryRelationships" />
-        <xsl:variable name="vLinkId" select="fhir:linkId/@value" />
-        <xsl:variable name="vTransferred" select="fhir:answer/fhir:valueBoolean/@value" />
-        <observation classCode="OBS" moodCode="EVN">
-            <!-- templateId -->
-            <xsl:call-template name="get-template-id" />
-            <id nullFlavor="NA" />
-            <xsl:choose>
-                <xsl:when test="$gvHaiQuestionnaire/fhir:Questionnaire//fhir:item[fhir:linkId/@value = $vLinkId]/fhir:code">
-                    <code>
-                        <xsl:apply-templates select="$gvHaiQuestionnaire/fhir:Questionnaire//fhir:item[fhir:linkId/@value = $vLinkId]/fhir:code" />
-                    </code>
-                </xsl:when>
-                <xsl:otherwise>
-                    <code>
-                        <xsl:apply-templates select="$questionnaire-mapping/fhir:map[@linkId = $vLinkId]/fhir:coding" />
-                    </code>
-                </xsl:otherwise>
-            </xsl:choose>
-            <statusCode code="completed" />
-            <xsl:choose>
-                <xsl:when test="$vTransferred = 'true'">
-                    <effectiveTime>
-                        <low>
-                            <xsl:attribute name="value">
-                                <xsl:call-template name="Date2TS">
-                                    <xsl:with-param name="date" select="//fhir:item[fhir:linkId/@value = ('date-of-last-transfer')]/fhir:answer/fhir:valueDate/@value" />
-                                    <xsl:with-param name="includeTime" select="true()" />
-                                </xsl:call-template>
-                            </xsl:attribute>
-                        </low>
-                    </effectiveTime>
-                </xsl:when>
-                <xsl:otherwise>
-                    <effectiveTime nullFlavor="NA" />
-                </xsl:otherwise>
-            </xsl:choose>
-            <value value="{fhir:answer/fhir:valueBoolean/@value}" xsi:type="BL" />
-            <xsl:if test="$vTransferred = 'true'">
-                <xsl:for-each select="$pEntryRelationships">
-                    <entryRelationship typeCode="REFR">
-                        <xsl:apply-templates select="." />
-                    </entryRelationship>
-                </xsl:for-each>
-            </xsl:if>
-        </observation>
-    </xsl:template>
-    <xsl:template match="fhir:item[fhir:linkId/@value = 'antibiotic-at-time-of-transfer']">
-        <xsl:variable name="vLinkId" select="fhir:linkId/@value" />
-        <observation classCode="OBS" moodCode="EVN">
-            <!-- templateId -->
-            <xsl:call-template name="get-template-id" />
-            <xsl:choose>
-                <xsl:when test="$gvHaiQuestionnaire/fhir:Questionnaire//fhir:item[fhir:linkId/@value = $vLinkId]/fhir:code">
-                    <code>
-                        <xsl:apply-templates select="$gvHaiQuestionnaire/fhir:Questionnaire//fhir:item[fhir:linkId/@value = $vLinkId]/fhir:code" />
-                    </code>
-                </xsl:when>
-                <xsl:otherwise>
-                    <code>
-                        <xsl:apply-templates select="$questionnaire-mapping/fhir:map[@linkId = $vLinkId]/fhir:coding" />
-                    </code>
-                </xsl:otherwise>
-            </xsl:choose>
-            <statusCode code="completed" />
-            <!-- Resident was on antibiotic therapy for this organism at the time of transfer 
-            set value="true" if this resident was on antibiotic therapy for this organism at the time of transfer.
-            set value="false" if this resident was not on antibiotic therapy for this organism at the time of transfer -->
-            <value value="true" xsi:type="BL" />
-        </observation>
-    </xsl:template>
-
-    <!-- SG 20220206: Added for HAI LTC -->
-    <!-- Specific Organism Type -->
-    <xsl:template match="fhir:item[fhir:linkId/@value = 'specific-organism-type']">
-        <xsl:variable name="vLinkId" select="fhir:linkId/@value" />
-        <observation classCode="OBS" moodCode="EVN">
-            <!-- templateId -->
-            <xsl:call-template name="get-template-id" />
-            <id nullFlavor="NA" />
-            <xsl:choose>
-                <xsl:when test="$gvHaiQuestionnaire/fhir:Questionnaire//fhir:item[fhir:linkId/@value = $vLinkId]/fhir:code">
-                    <code>
-                        <xsl:apply-templates select="$gvHaiQuestionnaire/fhir:Questionnaire//fhir:item[fhir:linkId/@value = $vLinkId]/fhir:code" />
-                    </code>
-                </xsl:when>
-                <xsl:otherwise>
-                    <code>
-                        <xsl:apply-templates select="$questionnaire-mapping/fhir:map[@linkId = $vLinkId]/fhir:coding" />
-                    </code>
-                </xsl:otherwise>
-            </xsl:choose>
-            <statusCode code="completed" />
-            <effectiveTime nullFlavor="NA" />
-            <xsl:comment select="' Specific Organism Type '" />
-            <value xsi:type="CD">
-                <xsl:apply-templates select="fhir:answer/fhir:valueCoding" />
-            </value>
-            <entryRelationship typeCode="COMP">
-                <xsl:apply-templates mode="questionnaire-observation" select="//fhir:item[fhir:linkId/@value = 'findings-group']" />
-            </entryRelationship>
-        </observation>
-    </xsl:template>
-
-    <xsl:template match="fhir:item[fhir:linkId/@value = ('resident-days', 'resident-admissions', 'number-admissions-on-c-diff-treatment', 'number-c-diff-treatment-starts')]">
-        <xsl:variable name="vLinkId" select="fhir:linkId/@value" />
-        <observation classCode="OBS" moodCode="EVN">
-            <xsl:call-template name="get-template-id" />
-            <code>
-                <xsl:apply-templates select="$gvHaiQuestionnaire/fhir:Questionnaire//fhir:item[fhir:linkId/@value = $vLinkId]/fhir:code" />
-            </code>
-            <statusCode code="completed" />
-            <value unit="d" value="{fhir:answer/fhir:valueInteger/@value}" xsi:type="PQ" />
-        </observation>
-    </xsl:template>
-
     <!-- fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/rr-priority-extension'] -> Reportability Response Priority (Observation) -->
     <xsl:template match="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/rr-priority-extension']">
         <entry typeCode="DRIV">
@@ -673,7 +614,39 @@ limitations under the License.
             </observation>
         </entry>
     </xsl:template>
-
+    <!-- fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-initiation-reason-extension'] -> Initial Case Report Reason Observation -->
+    <xsl:template match="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-initiation-reason-extension']">
+        <entryRelationship typeCode="COMP">
+            <observation classCode="OBS" moodCode="EVN">
+                <xsl:call-template name="get-template-id" />
+                <xsl:call-template name="get-id">
+                    <xsl:with-param name="pNoNullAllowed" select="true()" />
+                </xsl:call-template>
+                <code code="75322-8" codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" displayName="Complaint">
+                    <translation code="409586006" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" displayName="Complaint" />
+                </code>
+                <statusCode code="completed" />
+                <xsl:apply-templates select="//fhir:Composition/fhir:date" mode="period">
+                    <xsl:with-param name="pElementName" select="'effectiveTime'" />
+                </xsl:apply-templates>
+                <xsl:choose>
+                    <xsl:when test="fhir:valueCodeableConcept">
+                        <xsl:apply-templates select="fhir:valueCodeableConcept">
+                            <xsl:with-param name="pElementName" select="'value'" />
+                            <xsl:with-param name="pXSIType" select="'CD'" />
+                        </xsl:apply-templates>
+                    </xsl:when>
+                    <xsl:when test="fhir:valueString">
+                        <value xsi:type="CD" nullFlavor="OTH">
+                            <originalText>
+                                <xsl:value-of select="fhir:valueString/@value" />
+                            </originalText>
+                        </value>
+                    </xsl:when>
+                </xsl:choose>
+            </observation>
+        </entryRelationship>
+    </xsl:template>
     <!-- Gender Identity -->
     <xsl:template match="fhir:extension[@url = 'http://hl7.org/fhir/StructureDefinition/patient-genderIdentity']" mode="entry">
         <xsl:param name="generated-narrative">additional</xsl:param>
@@ -697,7 +670,6 @@ limitations under the License.
             </observation>
         </entry>
     </xsl:template>
-
     <!-- MD: Add PH Gender Identity for social history section-->
     <!-- SG 2023-04 eCR updated to add date and fixed value -->
     <xsl:template match="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-genderidentity-extension']" mode="entry">
@@ -725,7 +697,6 @@ limitations under the License.
                         </effectiveTime>
                     </xsl:otherwise>
                 </xsl:choose>
-
                 <xsl:apply-templates select="fhir:extension[@url = 'value']/fhir:valueCodeableConcept">
                     <xsl:with-param name="pElementName" select="'value'" />
                     <xsl:with-param name="pXSIType" select="'CD'" />
@@ -733,7 +704,6 @@ limitations under the License.
             </observation>
         </entry>
     </xsl:template>
-
     <!-- Birth Sex -->
     <xsl:template match="fhir:extension[@url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex']" mode="entry">
         <xsl:param name="generated-narrative">additional</xsl:param>
@@ -763,7 +733,6 @@ limitations under the License.
             </observation>
         </entry>
     </xsl:template>
-
     <!-- SG 2023-04 eCR (moved from fhir2cda-SubstanceAdministration) -->
     <xsl:template
         match="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/therapeutic-medication-response-extension'] | fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-therapeutic-medication-response-extension']"
@@ -789,7 +758,6 @@ limitations under the License.
             </observation>
         </entryRelationship>
     </xsl:template>
-
     <!-- MD: Tribal Affiliation extension  -->
     <xsl:template match="fhir:extension[@url = 'http://hl7.org/fhir/us/ecr/StructureDefinition/us-ph-tribal-affiliation-extension']" mode="entry">
         <xsl:param name="generated-narrative">additional</xsl:param>
@@ -805,7 +773,8 @@ limitations under the License.
                 <templateId extension="2021-01-01" root="2.16.840.1.113883.10.20.15.2.3.48" />
                 <id nullFlavor="NI" />
                 <xsl:for-each select="fhir:extension[@url = 'TribeName']">
-                    <xsl:call-template name="CodeableConcept2CD" />
+                    <xsl:apply-templates select="." />
+                    <!--<xsl:call-template name="CodeableConcept2CD" />-->
                 </xsl:for-each>
                 <statusCode code="completed" />
                 <effectiveTime nullFlavor="NI" />
@@ -820,7 +789,6 @@ limitations under the License.
         </entry>
     </xsl:template>
     <xsl:key match="fhir:Goal[fhir:outcomeReference]" name="outcome-references" use="fhir:outcomeReference/fhir:reference/@value" />
-
     <xsl:template match="fhir:Observation[ancestor::fhir:entry/fhir:fullUrl/@value = //fhir:Goal/fhir:outcomeReference/fhir:reference/@value]" mode="entry">
         <xsl:param name="generated-narrative">additional</xsl:param>
         <xsl:comment>Outcome Observation</xsl:comment>
@@ -831,7 +799,6 @@ limitations under the License.
             <xsl:call-template name="make-outcome-observation" />
         </entry>
     </xsl:template>
-
     <xsl:template name="make-outcome-observation">
         <observation classCode="OBS" moodCode="EVN">
             <!-- [CCDA R2.0] Outcome Observation -->
@@ -840,7 +807,7 @@ limitations under the License.
             <templateId extension="2017-08-01" root="2.16.840.1.113883.10.20.37.3.16" />
             <xsl:call-template name="get-id" />
             <xsl:for-each select="fhir:code">
-                <xsl:call-template name="CodeableConcept2CD" />
+                <xsl:apply-templates select="." />
             </xsl:for-each>
             <statusCode code="completed" />
             <effectiveTime>
@@ -863,12 +830,11 @@ limitations under the License.
             </effectiveTime>
         </observation>
     </xsl:template>
-
-    <xsl:template match="fhir:item[fhir:linkId/@value = 'event-type']" mode="infection">
+    <!--<xsl:template match="fhir:item[fhir:linkId/@value = 'event-type']" mode="infection">
         <observation classCode="OBS" moodCode="EVN" negationInd="false">
-            <!-- [C-CDA R1.1] Problem Observation -->
+            <!-\- [C-CDA R1.1] Problem Observation -\->
             <templateId root="2.16.840.1.113883.10.20.22.4.4" />
-            <!-- [HAI R2N1] Infection-Type Observation -->
+            <!-\- [HAI R2N1] Infection-Type Observation -\->
             <templateId root="2.16.840.1.113883.10.20.5.6.139" />
             <id extension="{$infection-id}" root="{$docId}" />
             <code code="ASSERTION" codeSystem="2.16.840.1.113883.5.4" />
@@ -878,19 +844,19 @@ limitations under the License.
             </effectiveTime>
             <xsl:message>Outputting infection-type observation</xsl:message>
             <xsl:for-each select="fhir:answer[fhir:valueCoding]">
-                <xsl:call-template name="CodeableConcept2CD">
+                <!-\-<xsl:call-template name="CodeableConcept2CD">-\->
+                <xsl:apply-templates select=".">
                     <xsl:with-param name="pElementName">value</xsl:with-param>
                     <xsl:with-param name="pXSIType">CD</xsl:with-param>
-                </xsl:call-template>
+                </xsl:apply-templates>
+                <!-\-</xsl:call-template>-\->
             </xsl:for-each>
             <xsl:apply-templates mode="diagnosis" select="//fhir:item[fhir:linkId[@value = 'criteria-used']]" />
             <xsl:apply-templates mode="condition" select="//fhir:item[fhir:linkId[@value = 'infection-condition']]" />
         </observation>
-    </xsl:template>
-
+    </xsl:template>-->
     <!-- The below is specific to PCP usually Vital Signs are in Organizers, not Health Concern Act... 
        changed name and added logic so that only PCP uses this code-->
-
     <xsl:template name="make-vitalsign-in-health-concern">
         <act classCode="ACT" moodCode="EVN">
             <!-- [C-CDA R2.1] Health Concern Act (V2) -->
@@ -899,6 +865,8 @@ limitations under the License.
             <templateId extension="2017-08-01" root="2.16.840.1.113883.10.20.37.3.8" />
             <id nullFlavor="NI" />
             <code code="75310-3" codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" displayName="Health Concern" />
+            <!-- text -->
+            <xsl:call-template name="get-text" />
             <statusCode code="active" />
             <entryRelationship typeCode="REFR">
                 <xsl:apply-templates select="." />
@@ -906,10 +874,8 @@ limitations under the License.
             </entryRelationship>
         </act>
     </xsl:template>
-
     <!-- Pulled the actual vital sign obs out of make-vitalsign-in-health-concern to make it 
        standalone so we can use in other use cases-->
-
     <!-- A Vital Sign Observation from FHIR translates to an Observation if it doesn't contain hasMember 
       (if it does contain hasMember it's an Organizer) -->
     <xsl:template name="make-vitalsign">
@@ -917,6 +883,8 @@ limitations under the License.
             <xsl:apply-templates mode="map-resource-to-template" select="." />
             <xsl:call-template name="get-id" />
             <xsl:apply-templates select="fhir:code" />
+            <!-- text -->
+            <xsl:call-template name="get-text" />
             <statusCode code="completed" />
             <xsl:choose>
                 <xsl:when test="fhir:effectiveDateTime">
@@ -975,6 +943,9 @@ limitations under the License.
                         </xsl:for-each>
                     </value>
                 </xsl:when>
+                <xsl:otherwise>
+                    <value xsi:type="PQ" unit="no_unit" nullFlavor="NI" />
+                </xsl:otherwise>
             </xsl:choose>
             <xsl:for-each select="fhir:component/fhir:valueQuantity">
                 <value xsi:type="PQ">
@@ -990,13 +961,12 @@ limitations under the License.
                 </value>
             </xsl:for-each>
             <xsl:for-each select="fhir:interpretation">
-                <xsl:call-template name="CodeableConcept2CD">
+                <xsl:apply-templates select=".">
                     <xsl:with-param name="pElementName">interpretationCode</xsl:with-param>
-                </xsl:call-template>
+                </xsl:apply-templates>
             </xsl:for-each>
         </observation>
     </xsl:template>
-
     <!-- MD: -->
     <xsl:template name="make-blood-pressure">
         <observation classCode="OBS" moodCode="EVN">
@@ -1004,6 +974,8 @@ limitations under the License.
             <templateId extension="2014-06-09" root="2.16.840.1.113883.10.20.22.4.27" />
             <xsl:call-template name="get-id" />
             <xsl:apply-templates select="fhir:code" />
+            <!-- text -->
+            <xsl:call-template name="get-text" />
             <statusCode code="completed" />
             <xsl:choose>
                 <xsl:when test="../fhir:effectiveDateTime">
@@ -1018,7 +990,6 @@ limitations under the License.
             </xsl:for-each>
         </observation>
     </xsl:template>
-
     <!-- MD: add template for blood-pressure -->
     <xsl:template name="make-blood-pressure-cluster">
         <organizer classCode="CLUSTER" moodCode="EVN">
@@ -1065,221 +1036,208 @@ limitations under the License.
             </xsl:for-each>
         </organizer>
     </xsl:template>
-
-    <!-- Planned Observation (Observation) fhir:ServiceRequest -->
+    <!-- fhir:ServiceRequest -->
     <xsl:template match="fhir:ServiceRequest" mode="entry">
         <!-- Check to see if this is a trigger code template -->
         <xsl:variable name="vTriggerEntry">
             <xsl:call-template name="check-for-trigger" />
         </xsl:variable>
         <xsl:variable name="vTriggerExtension" select="$vTriggerEntry/fhir:extension" />
-        <xsl:variable name="mapping" select="document('../oid-uri-mapping-r4.xml')/mapping" />
-        <!-- MD: if fhir ServiceRequest is a procedure, transform it to cda planned procedure  
-        if fhir ServiceRequsst is an observation, transform it to cda planned observation 
-        all others may transform it to cda planned act. 
-        not use  <xsl:call-template name="get-template-id"> for now since it is mapping to OBS only. we should think a more common approach
-        -->
+        <xsl:variable name="vMapping" select="document('../oid-uri-mapping-r4.xml')/mapping" />
+        <xsl:variable name="vCategoryValue" select="fhir:category/fhir:coding/fhir:code/@value" />
+        <xsl:variable name="vCodeValue" select="fhir:code/fhir:coding/fhir:code/@value" />
+        <xsl:variable name="vCodeSystem" select="fhir:code/fhir:coding/fhir:system/@value" />
         <xsl:choose>
-            <xsl:when test="fhir:code/fhir:coding/fhir:system/@value = 'https://ada.org/en/publications/cdt'">
-                <entry>
-                    <procedure classCode="PROC">
-                        <xsl:choose>
-                            <xsl:when test="fhir:intent/@value = 'plan'">
-                                <xsl:attribute name="moodCode">
-                                    <xsl:value-of select="'INT'" />
-                                </xsl:attribute>
-                            </xsl:when>
-                            <xsl:when test="fhir:intent/@value = 'order'">
-                                <xsl:attribute name="moodCode">
-                                    <xsl:value-of select="'RQO'" />
-                                </xsl:attribute>
-                            </xsl:when>
-                        </xsl:choose>
-                        <templateId root="2.16.840.1.113883.10.20.22.4.41" />
-                        <xsl:comment select="' Planned Procedure '" />
-                        <id root="{lower-case(uuid:get-uuid())}" />
-                        <code>
-                            <xsl:attribute name="code">
-                                <xsl:value-of select="fhir:code/fhir:coding/fhir:code/@value" />
-                            </xsl:attribute>
-                            <xsl:variable name="vCodeSystemUri" select="fhir:code/fhir:coding/fhir:system/@value" />
-                            <xsl:choose>
-                                <xsl:when test="$mapping/map[@uri = $vCodeSystemUri]">
-                                    <xsl:attribute name="codeSystem">
-                                        <xsl:value-of select="$mapping/map[@uri = $vCodeSystemUri][1]/@oid" />
-                                    </xsl:attribute>
-                                </xsl:when>
-                            </xsl:choose>
-                            <xsl:apply-templates mode="display" select="fhir:code/fhir:coding/fhir:display" />
-                        </code>
-                        <xsl:apply-templates mode="text" select="fhir:code/fhir:text" />
-                        <xsl:apply-templates select="fhir:status" />
-                        <xsl:for-each select="fhir:bodySite/fhir:coding">
-                            <targetSiteCode>
-                                <xsl:attribute name="code">
-                                    <xsl:value-of select="./fhir:code/@value" />
-                                </xsl:attribute>
-                                <xsl:variable name="vBodySiteSystemUri" select="./fhir:system/@value" />
-                                <xsl:choose>
-                                    <xsl:when test="$mapping/map[@uri = $vBodySiteSystemUri]">
-                                        <xsl:attribute name="codeSystem">
-                                            <xsl:value-of select="$mapping/map[@uri = $vBodySiteSystemUri][1]/@oid" />
-                                        </xsl:attribute>
-                                    </xsl:when>
-                                </xsl:choose>
-                                <xsl:apply-templates mode="display" select="./fhir:display" />
-                            </targetSiteCode>
-                        </xsl:for-each>
-                        <xsl:choose>
-                            <xsl:when test="fhir:encounter">
-                                <entryRelationship typeCode="RSON">
-                                    <encounter classCode="ENC" moodCode="INT">
-                                        <xsl:comment select="' Planned  Encounter V2 '" />
-                                        <templateId root="2.16.840.1.113883.10.20.22.4.40" />
-                                        <id root="{lower-case(uuid:get-uuid())}" />
-                                        <xsl:variable name="referenceURI">
-                                            <xsl:call-template name="resolve-to-full-url">
-                                                <xsl:with-param name="referenceURI" select="fhir:encounter/fhir:reference/@value" />
-                                            </xsl:call-template>
-                                        </xsl:variable>
-                                        <xsl:comment>Processing entry <xsl:value-of select="$referenceURI" /></xsl:comment>
-                                        <xsl:variable name="vTest" select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]" />
-                                        <xsl:for-each select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]">
-                                            <xsl:apply-templates mode="serviceRequest" select="fhir:resource/fhir:*" />
-                                        </xsl:for-each>
-                                    </encounter>
-                                </entryRelationship>
-                            </xsl:when>
-                        </xsl:choose>
-                    </procedure>
-                </entry>
+            <!-- Trigger Code extension exists: the only triggers that can happen on a serviceRequest are lab orders because that is the only RCTC value set>
+                 Map to Template: Initial Case Report Trigger Code Lab Test Order  -->
+            <xsl:when test="$vTriggerExtension">
+                <!-- Initial Case Report Trigger Code Lab Test Order -->
+                <xsl:call-template name="make-trigger-lab-test-order">
+                    <xsl:with-param name="pTriggerExtension" select="$vTriggerExtension" />
+                    <!--<xsl:with-param name="pMapping" select="$vMapping" />-->
+                </xsl:call-template>
+            </xsl:when>
+            <!-- Trigger Code extension does not exist and ServiceRequest.code.system = CDT or ICD 10 procedures -->
+            <xsl:when test="$vCodeSystem = 'https://ada.org/en/publications/cdt' or $vCodeSystem = 'http://www.cms.gov/Medicare/Coding/ICD10'">
+                <!-- Planned Procedure -->
+                <xsl:call-template name="make-planned-procedure">
+                    <!--<xsl:with-param name="pMapping" select="$vMapping" />-->
+                </xsl:call-template>
+            </xsl:when>
+            <!-- Trigger code extension does not exist AND ServiceRequest.category = sdoh, functional-status, disability-status, congnitive-status, 386053000, 108252007, 363679005
+                Map to template: Planned Observation -->
+            <xsl:when
+                test="$vCategoryValue = 'sdoh' or $vCategoryValue = 'functional-status' or $vCategoryValue = 'disability-status' or $vCategoryValue = 'cognitive-status' or $vCategoryValue = '386053000' or $vCategoryValue = '108252007' or $vCategoryValue = '363679005'">
+                <!-- Planned Observation -->
+                <xsl:call-template name="make-planned-observation">
+                    <!--<xsl:with-param name="pMapping" select="$vMapping" />-->
+                </xsl:call-template>
+            </xsl:when>
+            <!-- Trigger code extension does not exist AND ServiceRequest.category = 387713003, 410606002, 409063005, 409073007  
+                 Map to template: Planned Procedure-->
+            <xsl:when test="$vCategoryValue = '387713003' or $vCategoryValue = '410606002' or $vCategoryValue = '409063005' or $vCategoryValue = '409073007'">
+                <!-- Planned Procedure -->
+                <xsl:call-template name="make-planned-procedure">
+                    <!--<xsl:with-param name="pMapping" select="$vMapping" />-->
+                </xsl:call-template>
+            </xsl:when>
+            <!-- Trigger Code extension does not exist and ServiceRequest.code.system = LOINC
+                 Map to template: Planned Observation-->
+            <xsl:when test="$vCodeSystem = 'http://loinc.org'">
+                <!-- Planned Observation -->
+                <xsl:call-template name="make-planned-observation">
+                    <!--                    <xsl:with-param name="pMapping" select="$vMapping" />-->
+                </xsl:call-template>
             </xsl:when>
             <xsl:otherwise>
                 <!-- Planned Observation -->
-                <entry typeCode="DRIV">
-                    <observation classCode="OBS" moodCode="RQO">
-                        <!-- templateId -->
-                        <xsl:call-template name="get-template-id">
-                            <xsl:with-param name="pTriggerExtension" select="$vTriggerExtension" />
-                        </xsl:call-template>
-                        <xsl:call-template name="get-id" />
-
-                        <xsl:apply-templates select="fhir:code">
-                            <xsl:with-param name="pTriggerExtension" select="$vTriggerExtension" />
-                        </xsl:apply-templates>
-                        <!-- move statusCode after code -->
-                        <!-- MD: Do not hard code the statusCode 
-                            <statusCode code="active" /> only for the value is completed 
-                        -->
-                        <xsl:choose>
-                            <xsl:when test="fhir:status/@value = 'completed'">
-                                <statusCode code="active" />
-                            </xsl:when>
-                            <xsl:otherwise>
-                                <xsl:apply-templates select="fhir:status" />
-                            </xsl:otherwise>
-                        </xsl:choose>
-                        <!-- SG 20231123: Updated effective time processing to occurenceDateTime -->
-                        <xsl:call-template name="get-effective-time">
-                            <xsl:with-param name="pElement" select="fhir:occurrenceDateTime" />
-                        </xsl:call-template>
-                        <!-- SG 20231124: Added bodySite (targetSiteCode) -->
-                        <xsl:for-each select="fhir:bodySite/fhir:coding">
-                            <targetSiteCode>
-                                <xsl:attribute name="code">
-                                    <xsl:value-of select="./fhir:code/@value" />
-                                </xsl:attribute>
-                                <xsl:variable name="vBodySiteSystemUri" select="./fhir:system/@value" />
-                                <xsl:choose>
-                                    <xsl:when test="$mapping/map[@uri = $vBodySiteSystemUri]">
-                                        <xsl:attribute name="codeSystem">
-                                            <xsl:value-of select="$mapping/map[@uri = $vBodySiteSystemUri][1]/@oid" />
-                                        </xsl:attribute>
-                                    </xsl:when>
-                                </xsl:choose>
-                                <xsl:apply-templates mode="display" select="./fhir:display" />
-                            </targetSiteCode>
-                        </xsl:for-each>
-                        <!-- SG 20231124: ServiceRequest.performer -->
-                        <xsl:for-each select="fhir:performer">
-                            <xsl:for-each select="fhir:reference">
-                                <xsl:variable name="referenceURI">
-                                    <xsl:call-template name="resolve-to-full-url">
-                                        <xsl:with-param name="referenceURI" select="@value" />
-                                    </xsl:call-template>
-                                </xsl:variable>
-                                <xsl:comment>Performer <xsl:value-of select="$referenceURI" /></xsl:comment>
-                                <xsl:for-each select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]/fhir:resource/*">
-                                    <xsl:call-template name="make-performer" />
-                                </xsl:for-each>
-                            </xsl:for-each>
-                        </xsl:for-each>
-                        <!-- author (C-CDA Author Participation template) -->
-                        <xsl:if test="fhir:authoredOn">
-                            <!--<xsl:variable name="time">
-                                <xsl:call-template name="Date2TS">
-                                    <xsl:with-param name="date" select="fhir:authoredOn/@value" />
-                                    <xsl:with-param name="includeTime" select="true()" />
-                                </xsl:call-template>
-                            </xsl:variable>
-                            <time value="{$time}" />-->
-
-                            <!-- SG 20231124: This comes from ServiceRequest.requester -->
-                            <xsl:choose>
-                                <xsl:when test="fhir:requester">
-                                    <xsl:apply-templates select="fhir:requester" />
-                                </xsl:when>
-                                <xsl:otherwise>
-                                    <id nullFlavor="NI" />
-                                </xsl:otherwise>
-                            </xsl:choose>
-                        </xsl:if>
-
-                    </observation>
-                </entry>
+                <xsl:call-template name="make-planned-observation">
+                    <!--<xsl:with-param name="pMapping" select="$vMapping" />-->
+                </xsl:call-template>
             </xsl:otherwise>
         </xsl:choose>
     </xsl:template>
-
-    <xsl:template match="//fhir:item[fhir:linkId[@value = 'pathogen-identified']]" mode="pathogen-identified">
-        <observation classCode="OBS" moodCode="EVN">
-            <templateId root="2.16.840.1.113883.10.20.22.4.2" />
-            <templateId root="2.16.840.1.113883.10.20.5.6.145" />
-            <id nullFlavor="NA" />
-            <code code="41852-5" codeSystem="2.16.840.1.113883.6.1" displayName="Microogranism identified" />
-            <statusCode code="completed" />
-            <effectiveTime nullFlavor="NA" />
-            <xsl:for-each select="fhir:answer[fhir:valueCoding]">
-                <xsl:call-template name="CodeableConcept2CD">
-                    <xsl:with-param name="pElementName">value</xsl:with-param>
-                    <xsl:with-param name="pXSIType">CD</xsl:with-param>
+    <xsl:template name="make-trigger-lab-test-order">
+        <xsl:param name="pTriggerExtension" />
+        <!--        <xsl:param name="pMapping" />-->
+        <entry typeCode="DRIV">
+            <observation classCode="OBS" moodCode="RQO">
+                <xsl:if test="fhir:doNotPerform/@value = 'true'">
+                    <xsl:attribute name="negationInd" select="'true'" />
+                </xsl:if>
+                <!-- templateId -->
+                <xsl:comment select="' [C-CDA R1.1] Plan of Care Activity Observation '" />
+                <templateId root="2.16.840.1.113883.10.20.22.4.44" />
+                <xsl:comment select="' [C-CDA R2.0] Planned Observation (V2) '" />
+                <templateId root="2.16.840.1.113883.10.20.22.4.44" extension="2014-06-09" />
+                <xsl:comment select="' [eICR R2 STU2] Initial Case Report Trigger Code Lab Test Order (V2) '" />
+                <templateId root="2.16.840.1.113883.10.20.15.2.3.4" extension="2019-04-01" />
+                <xsl:call-template name="get-id" />
+                <!-- code -->
+                <xsl:apply-templates select="fhir:code">
+                    <xsl:with-param name="pTriggerExtension" select="$pTriggerExtension" />
+                </xsl:apply-templates>
+                <!-- text -->
+                <xsl:call-template name="get-text" />
+                <!-- statusCode is hard coded to "active" in C-CDA Planned Observation -->
+                <statusCode code="active" />
+                <!-- effectiveTime SG 20231123: Updated effective time processing to occurenceDateTime -->
+                <xsl:call-template name="get-effective-time">
+                    <xsl:with-param name="pElement" select="fhir:occurrenceDateTime" />
                 </xsl:call-template>
-            </xsl:for-each>
-        </observation>
+                <!-- targetSiteCode SG 20231124: Added bodySite (targetSiteCode) -->
+                <xsl:apply-templates select="fhir:bodySite" />
+                <!-- performer -->
+                <!-- SG 20231124: ServiceRequest.performer -->
+                <xsl:for-each select="fhir:performer">
+                    <xsl:for-each select="fhir:reference">
+                        <xsl:variable name="referenceURI">
+                            <xsl:call-template name="resolve-to-full-url">
+                                <xsl:with-param name="referenceURI" select="@value" />
+                            </xsl:call-template>
+                        </xsl:variable>
+                        <xsl:comment>Performer <xsl:value-of select="$referenceURI" /></xsl:comment>
+                        <xsl:for-each select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]/fhir:resource/*">
+                            <xsl:call-template name="make-performer" />
+                        </xsl:for-each>
+                    </xsl:for-each>
+                </xsl:for-each>
+                <!-- author (C-CDA Author Participation template) -->
+                <xsl:choose>
+                    <xsl:when test="fhir:authoredOn and not(fhir:requester)">
+                        <author>
+                            <templateId root="2.16.840.1.113883.10.20.22.4.119" />
+                            <time>
+                                <xsl:attribute name="value">
+                                    <xsl:call-template name="Date2TS">
+                                        <xsl:with-param name="date" select="fhir:authoredOn/@value" />
+                                        <xsl:with-param name="includeTime" select="true()" />
+                                    </xsl:call-template>
+                                </xsl:attribute>
+                            </time>
+                            <assignedAuthor>
+                                <id nullFlavor="NI" />
+                            </assignedAuthor>
+                        </author>
+                    </xsl:when>
+                    <xsl:when test="fhir:requester">
+                        <xsl:apply-templates select="fhir:requester" />
+                    </xsl:when>
+                </xsl:choose>
+            </observation>
+        </entry>
     </xsl:template>
-
-    <xsl:template match="//fhir:item[fhir:linkId[@value = 'pathogen-ranking']]" mode="pathogen-ranking">
-        <observation classCode="OBS" moodCode="EVN">
-            <!-- Problem Observation -->
-            <templateId root="2.16.840.1.113883.10.20.22.4.4" />
-            <!-- Pathogen Ranking Observation -->
-            <templateId root="2.16.840.1.113883.10.20.5.6.147" />
-            <id nullFlavor="NA" />
-            <code code="ASSERTION" codeSystem="2.16.840.1.113883.5.4" />
-            <statusCode code="completed" />
-            <xsl:for-each select="fhir:answer[fhir:valueCoding]">
-                <xsl:call-template name="CodeableConcept2CD">
-                    <xsl:with-param name="pElementName">value</xsl:with-param>
-                    <xsl:with-param name="pXSIType">CD</xsl:with-param>
+    <xsl:template name="make-planned-observation">
+        <xsl:param name="pTriggerExtension" />
+        <!--        <xsl:param name="pMapping" />-->
+        <xsl:variable name="vMoodCode">
+            <xsl:apply-templates select="fhir:intent" />
+        </xsl:variable>
+        <entry typeCode="DRIV">
+            <observation classCode="OBS" moodCode="{$vMoodCode}">
+                <xsl:if test="fhir:doNotPerform/@value = 'true'">
+                    <xsl:attribute name="negationInd" select="'true'" />
+                </xsl:if>
+                <!-- templateId -->
+                <xsl:comment select="' [C-CDA R1.1] Plan of Care Activity Observation '" />
+                <templateId root="2.16.840.1.113883.10.20.22.4.44" />
+                <xsl:comment select="' [C-CDA R2.0] Planned Observation (V2) '" />
+                <templateId root="2.16.840.1.113883.10.20.22.4.44" extension="2014-06-09" />
+                <xsl:if test="$pTriggerExtension">
+                    <xsl:comment select="' [eICR R2 STU2] Initial Case Report Trigger Planned Observation '" />
+                    <templateId root="2.16.840.1.113883.10.20.15.2.3.43" extension="2021-01-01" />
+                </xsl:if>
+                <xsl:call-template name="get-id" />
+                <xsl:apply-templates select="fhir:code">
+                    <xsl:with-param name="pTriggerExtension" select="$pTriggerExtension" />
+                </xsl:apply-templates>
+                <!-- C-CDA Planned Observation statusCode is hard coded to 'active' -->
+                <statusCode code="active" />
+                <!-- SG 20231123: Updated effective time processing to occurenceDateTime -->
+                <xsl:call-template name="get-effective-time">
+                    <xsl:with-param name="pElement" select="fhir:occurrenceDateTime" />
                 </xsl:call-template>
-            </xsl:for-each>
-        </observation>
+                <!-- SG 20231124: Added bodySite (targetSiteCode) -->
+                <xsl:apply-templates select="fhir:bodySite" />
+                <!-- SG 20231124: ServiceRequest.performer -->
+                <xsl:for-each select="fhir:performer">
+                    <xsl:for-each select="fhir:reference">
+                        <xsl:variable name="referenceURI">
+                            <xsl:call-template name="resolve-to-full-url">
+                                <xsl:with-param name="referenceURI" select="@value" />
+                            </xsl:call-template>
+                        </xsl:variable>
+                        <xsl:comment>Performer <xsl:value-of select="$referenceURI" /></xsl:comment>
+                        <xsl:for-each select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]/fhir:resource/*">
+                            <xsl:call-template name="make-performer" />
+                        </xsl:for-each>
+                    </xsl:for-each>
+                </xsl:for-each>
+                <!-- author (C-CDA Author Participation template) -->
+                <xsl:choose>
+                    <xsl:when test="fhir:authoredOn and not(fhir:requester)">
+                        <author>
+                            <templateId root="2.16.840.1.113883.10.20.22.4.119" />
+                            <time>
+                                <xsl:attribute name="value">
+                                    <xsl:call-template name="Date2TS">
+                                        <xsl:with-param name="date" select="fhir:authoredOn/@value" />
+                                        <xsl:with-param name="includeTime" select="true()" />
+                                    </xsl:call-template>
+                                </xsl:attribute>
+                            </time>
+                            <assignedAuthor>
+                                <id nullFlavor="NI" />
+                            </assignedAuthor>
+                        </author>
+                    </xsl:when>
+                    <xsl:when test="fhir:requester">
+                        <xsl:apply-templates select="fhir:requester" />
+                    </xsl:when>
+                </xsl:choose>
+            </observation>
+        </entry>
     </xsl:template>
-
-    <xsl:template name="no-pathogens-found">
-        <!-- Not sure how to show that no pathogens were found -->
-    </xsl:template>
-
     <!-- Problem Observation -->
     <xsl:template name="make-problem-observation">
         <!-- Check to see if this is a trigger code template -->
@@ -1299,7 +1257,6 @@ limitations under the License.
                     <xsl:attribute name="negationInd" select="'false'" />
                 </xsl:when>
             </xsl:choose>
-
             <!-- templateId -->
             <xsl:call-template name="get-template-id">
                 <xsl:with-param name="pTriggerExtension" select="$vTriggerExtension" />
@@ -1327,12 +1284,11 @@ limitations under the License.
                     </code>
                 </xsl:otherwise>
             </xsl:choose>
-            <xsl:if test="fhir:note">
-                <text>
-                    <xsl:value-of select="fhir:note/fhir:text/@value" />
-                </text>
-            </xsl:if>
+            <!-- text -->
+            <xsl:call-template name="get-text" />
+            <!-- statusCode -->
             <statusCode code="completed" />
+            <!-- effectiveTime -->
             <effectiveTime>
                 <xsl:choose>
                     <xsl:when test="fhir:onsetDateTime/@value">
@@ -1361,16 +1317,89 @@ limitations under the License.
                     </high>
                 </xsl:if>
             </effectiveTime>
+            <!-- value -->
             <xsl:apply-templates select="fhir:code">
                 <xsl:with-param name="pElementName" select="'value'" />
                 <xsl:with-param name="pXSIType" select="'CD'" />
                 <xsl:with-param name="pTriggerExtension" select="$vTriggerExtension" />
             </xsl:apply-templates>
+            <!-- author (C-CDA Author Participation template) -->
+            <xsl:choose>
+                <xsl:when test="fhir:recordedDate and not(fhir:recorder)">
+                    <author>
+                        <templateId root="2.16.840.1.113883.10.20.22.4.119" />
+                        <time>
+                            <xsl:attribute name="value">
+                                <xsl:call-template name="Date2TS">
+                                    <xsl:with-param name="date" select="fhir:recordedDate/@value" />
+                                    <xsl:with-param name="includeTime" select="true()" />
+                                </xsl:call-template>
+                            </xsl:attribute>
+                        </time>
+                        <assignedAuthor>
+                            <id nullFlavor="NI" />
+                        </assignedAuthor>
+                    </author>
+                </xsl:when>
+                <xsl:when test="fhir:recorder">
+                    <xsl:apply-templates select="fhir:recorder" />
+                </xsl:when>
+            </xsl:choose>
+            <xsl:apply-templates select="fhir:clinicalStatus" />
         </observation>
     </xsl:template>
-
+    <xsl:template match="fhir:clinicalStatus[fhir:coding]">
+        <entryRelationship typeCode="REFR">
+            <observation classCode="OBS" moodCode="EVN">
+                <!-- templateId -->
+                <xsl:call-template name="get-template-id" />
+                <code code="33999-4" displayName="Status" codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" />
+                <statusCode code="completed" />
+                <effectiveTime>
+                    <low nullFlavor="UNK" />
+                </effectiveTime>
+                <value>
+                    <xsl:choose>
+                        <xsl:when test="fhir:code/@value = 'resolved'">
+                            <xsl:attribute name="code">413322009</xsl:attribute>
+                            <xsl:attribute name="displayName">Problem resolved (finding)</xsl:attribute>
+                        </xsl:when>
+                        <xsl:when test="fhir:code/@value = 'recurrence'">
+                            <xsl:attribute name="code">246455001</xsl:attribute>
+                            <xsl:attribute name="displayName">Recurrence (qualifier value)</xsl:attribute>
+                        </xsl:when>
+                        <xsl:when test="fhir:code/@value = 'relapse'">
+                            <xsl:attribute name="code">263855007</xsl:attribute>
+                            <xsl:attribute name="displayName">Relapse phase (qualifier value)</xsl:attribute>
+                        </xsl:when>
+                        <xsl:when test="fhir:code/@value = 'remission'">
+                            <xsl:attribute name="code">277022003</xsl:attribute>
+                            <xsl:attribute name="displayName">Remission phase (qualifier value)</xsl:attribute>
+                        </xsl:when>
+                        <xsl:when test="fhir:code/@value = 'active'">
+                            <xsl:attribute name="code">55561003</xsl:attribute>
+                            <xsl:attribute name="displayName">Active (qualifier value)</xsl:attribute>
+                        </xsl:when>
+                        <xsl:when test="fhir:code/@value = 'inactive'">
+                            <xsl:attribute name="code">73425007</xsl:attribute>
+                            <xsl:attribute name="displayName">Inactive (qualifier value)</xsl:attribute>
+                        </xsl:when>
+                        <xsl:otherwise>
+                            <xsl:attribute name="code">55561003</xsl:attribute>
+                            <xsl:attribute name="displayName">Active (qualifier value)</xsl:attribute>
+                        </xsl:otherwise>
+                    </xsl:choose>
+                    <xsl:attribute name="codeSystem">2.16.840.1.113883.6.96</xsl:attribute>
+                    <xsl:attribute name="codeSystemName">SNOMED CT</xsl:attribute>
+                    <xsl:attribute name="xsi:type">CD</xsl:attribute>
+                </value>
+            </observation>
+        </entryRelationship>
+    </xsl:template>
     <!-- RR processing status reason -->
-    <xsl:template match="fhir:Observation[fhir:meta/fhir:profile/@value = 'http://hl7.org/fhir/us/ecr/StructureDefinition/rr-eicr-processing-status-reason-observation']" mode="rr">
+    <xsl:template match="
+            fhir:Observation[fhir:meta/fhir:profile/@value = 'http://hl7.org/fhir/us/ecr/StructureDefinition/rr-eicr-processing-status-reason-observation'] |
+            fhir:Observation[fhir:code/fhir:coding/fhir:code[@value = 'RR6']]" mode="rr">
         <entryRelationship typeCode="RSON">
             <observation classCode="OBS" moodCode="EVN">
                 <xsl:call-template name="get-template-id" />
@@ -1413,7 +1442,6 @@ limitations under the License.
             </observation>
         </entryRelationship>
     </xsl:template>
-
     <!-- RR Reportable Condition Observation -->
     <!-- SG 202112: This whole template is too big needs breaking up and refactoring -->
     <xsl:template match="fhir:Observation[fhir:meta/fhir:profile/@value = 'http://hl7.org/fhir/us/ecr/StructureDefinition/rr-relevant-reportable-condition-observation']">
@@ -1565,7 +1593,25 @@ limitations under the License.
             </observation>
         </component>
     </xsl:template>
-
+    <xsl:template name="get-text">
+        <xsl:choose>
+            <xsl:when test="fhir:note and fhir:text">
+                <text>
+                    <xsl:value-of select="concat(fhir:note/fhir:text/@value, '; ', fhir:text/xhtml:div)" />
+                </text>
+            </xsl:when>
+            <xsl:when test="fhir:note">
+                <text>
+                    <xsl:value-of select="fhir:note/fhir:text/@value" />
+                </text>
+            </xsl:when>
+            <xsl:when test="fhir:text">
+                <text>
+                    <xsl:value-of select="fhir:text/xhtml:div" />
+                </text>
+            </xsl:when>
+        </xsl:choose>
+    </xsl:template>
     <xsl:template match="*" mode="debug">
         <xsl:comment>
       <xsl:value-of select="local-name(.)" />

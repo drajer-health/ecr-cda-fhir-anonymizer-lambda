@@ -16,9 +16,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 -->
-<xsl:stylesheet exclude-result-prefixes="lcg xsl cda fhir xhtml" version="2.0" xmlns="urn:hl7-org:v3" xmlns:cda="urn:hl7-org:v3"
-    xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" xmlns:xhtml="http://www.w3.org/1999/xhtml"
-    xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:stylesheet exclude-result-prefixes="lcg xsl cda fhir xhtml" version="2.0" xmlns="urn:hl7-org:v3" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com"
+    xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 
     <xsl:import href="fhir2cda-utility.xslt" />
     <xsl:import href="fhir2cda-CD.xslt" />
@@ -45,53 +44,42 @@ limitations under the License.
     <!-- Template: make-encompassing-encounter 
          This template uses Composition.encounter to create the CDA EncompassingEncounter -->
     <xsl:template name="make-encompassing-encounter">
-
-        <!-- Variable for identification of IG - moved out of Global var because XSpec can't deal with global vars -->
-        <xsl:variable name="vCurrentIg">
-            <xsl:call-template name="get-current-ig" />
-        </xsl:variable>
-
         <componentOf>
             <encompassingEncounter>
+                <!-- identifier -->
                 <xsl:call-template name="get-id" />
-
-                <!-- For some reason eICR is different than PCP for encompassingEncounter.code -->
+                <!-- code -->
+                <code>
+                    <xsl:choose>
+                        <xsl:when test="fhir:class or fhir:type">
+                            <xsl:apply-templates select="fhir:class" />
+                            <xsl:for-each select="fhir:type">
+                                <xsl:apply-templates select=".">
+                                    <xsl:with-param name="pElementName" select="'translation'" />
+                                </xsl:apply-templates>
+                            </xsl:for-each>
+                        </xsl:when>
+                        <xsl:otherwise>
+                            <xsl:attribute name="nullFlavor">NI</xsl:attribute>
+                        </xsl:otherwise>
+                    </xsl:choose>
+                </code>
+                <!-- effectiveTime (required) -->
                 <xsl:choose>
-                    <xsl:when test="$vCurrentIg = 'eICR' or $vCurrentIg = 'RR'">
-                        <code>
-                            <xsl:apply-templates select="fhir:class" />
-                            <xsl:for-each select="fhir:type">
-                                <xsl:apply-templates select=".">
-                                    <xsl:with-param name="pElementName" select="'translation'" />
-                                </xsl:apply-templates>
-                            </xsl:for-each>
-                        </code>
-                    </xsl:when>
-                    <xsl:when test="$vCurrentIg eq 'DentalConsultNote' or $vCurrentIg eq 'DentalReferalNote'">
-                        <code>
-                            <xsl:apply-templates select="fhir:class" />
-                            <xsl:for-each select="fhir:type">
-                                <xsl:apply-templates select=".">
-                                    <xsl:with-param name="pElementName" select="'translation'" />
-                                </xsl:apply-templates>
-                            </xsl:for-each>
-                        </code>
+                    <xsl:when test="fhir:period">
+                        <xsl:apply-templates select="fhir:period" />
                     </xsl:when>
                     <xsl:otherwise>
-                        <xsl:for-each select="fhir:type">
-                            <xsl:call-template name="CodeableConcept2CD" />
-                        </xsl:for-each>
+                        <effectiveTime>
+                            <low nullFlavor="NA" />
+                        </effectiveTime>
                     </xsl:otherwise>
                 </xsl:choose>
-                <xsl:apply-templates select="fhir:period" />
-
                 <!-- SG 20231126: Added dischargeDisposition processing -->
                 <xsl:for-each select="fhir:hospitalization/fhir:dischargeDisposition">
-                    <dischargeDispositionCode>
-                        <xsl:apply-templates select=".">
-                            <xsl:with-param name="pElementName" select="'dischargeDispositionCode'" />
-                        </xsl:apply-templates>
-                    </dischargeDispositionCode>
+                    <xsl:apply-templates select=".">
+                        <xsl:with-param name="pElementName" select="'dischargeDispositionCode'" />
+                    </xsl:apply-templates>
                 </xsl:for-each>
 
                 <!-- SG 20210723: I've refactored this quite a bit - it wasn't picking up multiple participants in eICR 
@@ -103,60 +91,66 @@ limitations under the License.
                 <!-- SG 20210723: TODO Need to decide what to do if there isn't a participant with type ATND - for now just leaving them
                       as encounterParticipants, but maybe if there is only one we would want to put it into responsibleParty?-->
                 <!-- responsibleParty (with type = ATND) needs to come first -->
+                <!-- only take the first ATND participant, put all the others into encounterParticipants -->
                 <xsl:for-each select="fhir:participant[fhir:type/fhir:coding/fhir:code/@value = 'ATND']">
-                    <!-- SG 2021/07/22 Adding: using a variable here to hold either the Provider or ProviderRole information-->
-                    <xsl:variable name="vEncounterParticipant">
-                        <xsl:apply-templates mode="encounter-participant" select="." />
-                    </xsl:variable>
-                    <xsl:variable name="vServiceProvider">
-                        <xsl:apply-templates mode="composition-encounter" select="../fhir:serviceProvider" />
-                    </xsl:variable>
-                    <responsibleParty>
-                        <!-- SG 2021/07/22: Adding: moved the code out for assignedEntity so we can reuse it in the encounterParticipant -->
-                        <xsl:call-template name="get-assigned-entity">
-                            <xsl:with-param name="pEncounterParticipant" select="$vEncounterParticipant" />
-                            <xsl:with-param name="pServiceProvider" select="$vServiceProvider" />
-                        </xsl:call-template>
-                    </responsibleParty>
-                </xsl:for-each>
-                <!-- all the other participants go into encounterParticipant -->
-                <xsl:for-each select="fhir:participant[not(fhir:type/fhir:coding/fhir:code/@value = 'ATND')]">
-
-                    <!-- SG 2021/07/22 Adding: using a variable here to hold either the Provider or ProviderRole information-->
-                    <xsl:variable name="vEncounterParticipant">
-                        <xsl:apply-templates mode="encounter-participant" select="." />
-                    </xsl:variable>
-                    <encounterParticipant>
-                        <!-- typeCode is required-->
-                        <!-- SG: There is a big mismatch in the codes allowed in CDA (ADM, ATND, CON, DIS, REF) and the codes allowed in FHIR: https://www.hl7.org/fhir/valueset-encounter-participant-type.html
-                             Need to do a mapping somehow - might be best in a file so we can reuse
-                             For now, if they are not in that short list, will default to CON (not ideal!!)-->
-                        <xsl:variable name="vType">
-                            <xsl:choose>
-                                <xsl:when
-                                    test="fhir:type/fhir:coding[fhir:system/@value = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType']/fhir:code/@value">
-                                    <xsl:value-of
-                                        select="fhir:type/fhir:coding[fhir:system/@value = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType']/fhir:code/@value"
-                                     />
-                                </xsl:when>
-                                <xsl:otherwise>CON</xsl:otherwise>
-                            </xsl:choose>
+                    <xsl:if test="position() = 1">
+                        <!-- SG 2021/07/22 Adding: using a variable here to hold either the Provider or ProviderRole information-->
+                        <xsl:variable name="vEncounterParticipant">
+                            <xsl:apply-templates mode="encounter-participant" select="." />
                         </xsl:variable>
-                        <xsl:attribute name="typeCode" select="
-                                if (not($vType) or ($vType = 'CALLBCK' or $vType = 'ESC' or $vType = 'SPRF' or $vType = 'PPRF' or $vType = 'PART' or $vType = 'translator' or $vType = 'emergency'))
-                                then
-                                    'CON'
-                                else
-                                    $vType"> </xsl:attribute>
                         <xsl:variable name="vServiceProvider">
                             <xsl:apply-templates mode="composition-encounter" select="../fhir:serviceProvider" />
                         </xsl:variable>
-                        <!-- SG 2021/07/22: Adding: moved the code out for assignedEntity so we can reuse it in the encounterParticipant -->
-                        <xsl:call-template name="get-assigned-entity">
-                            <xsl:with-param name="pEncounterParticipant" select="$vEncounterParticipant" />
-                            <xsl:with-param name="pServiceProvider" select="$vServiceProvider" />
-                        </xsl:call-template>
-                    </encounterParticipant>
+                        <responsibleParty>
+                            <!-- SG 2021/07/22: Adding: moved the code out for assignedEntity so we can reuse it in the encounterParticipant -->
+                            <xsl:call-template name="get-assigned-entity">
+                                <xsl:with-param name="pEncounterParticipant" select="$vEncounterParticipant" />
+                                <xsl:with-param name="pServiceProvider" select="$vServiceProvider" />
+                            </xsl:call-template>
+                        </responsibleParty>
+                    </xsl:if>
+                </xsl:for-each>
+                <!-- all the other participants go into encounterParticipant -->
+                <!--<xsl:for-each select="fhir:participant[not(fhir:type/fhir:coding/fhir:code/@value = 'ATND')]">-->
+                <xsl:for-each select="fhir:participant">
+                    <xsl:if test="not(fhir:type/fhir:coding/fhir:code/@value = 'ATND') or (fhir:type/fhir:coding/fhir:code/@value = 'ATND' and position() > 1)">
+                        <!-- SG 2021/07/22 Adding: using a variable here to hold either the Provider or ProviderRole information-->
+                        <xsl:variable name="vEncounterParticipant">
+                            <xsl:apply-templates mode="encounter-participant" select="." />
+                        </xsl:variable>
+                        <encounterParticipant>
+                            <!-- typeCode is required-->
+                            <!-- SG: There is a big mismatch in the codes allowed in CDA (ADM, ATND, CON, DIS, REF) and the codes allowed in FHIR: https://www.hl7.org/fhir/valueset-encounter-participant-type.html
+                             Need to do a mapping somehow - might be best in a file so we can reuse
+                             For now, if they are not in that short list, will default to CON (not ideal!!)-->
+                            <xsl:variable name="vType">
+                                <xsl:choose>
+                                    <xsl:when test="fhir:type/fhir:coding[fhir:system/@value = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType']/fhir:code/@value">
+                                        <xsl:value-of select="fhir:type/fhir:coding[fhir:system/@value = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType']/fhir:code/@value" />
+                                    </xsl:when>
+                                    <xsl:otherwise>CON</xsl:otherwise>
+                                </xsl:choose>
+                            </xsl:variable>
+                            <xsl:attribute name="typeCode" select="
+                                    if (not($vType) or ($vType = 'CALLBCK' or $vType = 'ESC' or $vType = 'SPRF' or $vType = 'PPRF' or $vType = 'PART' or $vType = 'translator' or $vType = 'emergency'))
+                                    then
+                                        'CON'
+                                    else
+                                        $vType"> </xsl:attribute>
+                            <!-- time -->
+                            <xsl:apply-templates select="fhir:period">
+                                <xsl:with-param name="pElementName">time</xsl:with-param>
+                            </xsl:apply-templates>
+                            <xsl:variable name="vServiceProvider">
+                                <xsl:apply-templates mode="composition-encounter" select="../fhir:serviceProvider" />
+                            </xsl:variable>
+                            <!-- SG 2021/07/22: Adding: moved the code out for assignedEntity so we can reuse it in the encounterParticipant -->
+                            <xsl:call-template name="get-assigned-entity">
+                                <xsl:with-param name="pEncounterParticipant" select="$vEncounterParticipant" />
+                                <xsl:with-param name="pServiceProvider" select="$vServiceProvider" />
+                            </xsl:call-template>
+                        </encounterParticipant>
+                    </xsl:if>
                 </xsl:for-each>
                 <!--  -->
                 <xsl:for-each select="fhir:location">
@@ -208,7 +202,19 @@ limitations under the License.
                                     </xsl:choose>
                                 </xsl:otherwise>
                             </xsl:choose>
-                            <xsl:apply-templates select="$vLocation/fhir:Location/fhir:type" />
+                            <!-- healthCareFacility/code -->
+                            <!-- FHIR type allows more than one so merge them into a variable, concat any texts and process -->
+                            <xsl:variable name="vMergedTypes">
+                                <type xmlns="http://hl7.org/fhir">
+                                    <xsl:copy-of select="$vLocation/fhir:Location/fhir:type/fhir:coding" />
+                                    <xsl:if test="$vLocation/fhir:Location/fhir:type/fhir:text">
+                                        <text xmlns="http://hl7.org/fhir">
+                                            <xsl:attribute name="value" select="string-join($vLocation/fhir:Location/fhir:type/fhir:text/@value, ', ')" />
+                                        </text>
+                                    </xsl:if>
+                                </type>
+                            </xsl:variable>
+                            <xsl:apply-templates select="$vMergedTypes/fhir:type" />
                             <location>
                                 <xsl:call-template name="get-org-name">
                                     <xsl:with-param name="pElement" select="$vLocation/fhir:Location/fhir:name" />
@@ -218,7 +224,7 @@ limitations under the License.
                                 <xsl:choose>
                                     <xsl:when test="$vLocation/fhir:Location/fhir:address">
                                         <xsl:choose>
-                                            <xsl:when test="$vCurrentIg = 'eICR'">
+                                            <xsl:when test="$gvCurrentIg = 'eICR'">
                                                 <xsl:call-template name="get-addr">
                                                     <xsl:with-param name="pElement" select="$vLocation/fhir:Location/fhir:address[1]" />
                                                 </xsl:call-template>
@@ -232,7 +238,7 @@ limitations under the License.
                                     </xsl:when>
                                     <xsl:otherwise>
                                         <xsl:choose>
-                                            <xsl:when test="$vCurrentIg = 'eICR'">
+                                            <xsl:when test="$gvCurrentIg = 'eICR'">
                                                 <xsl:call-template name="get-addr">
                                                     <xsl:with-param name="pElement" select="$vServiceProvider/fhir:Organization/fhir:address[1]" />
                                                 </xsl:call-template>
@@ -249,13 +255,16 @@ limitations under the License.
                             <serviceProviderOrganization>
                                 <!--  -->
                                 <xsl:call-template name="get-org-name">
-                                    <xsl:with-param name="pElement" select="$vServiceProvider/fhir:Organization/fhir:name" />
+                                    <!-- address duplicate Organization issue -->
+                                    <xsl:with-param name="pElement" select="$vServiceProvider/fhir:Organization[1]/fhir:name" />
                                 </xsl:call-template>
                                 <xsl:call-template name="get-telecom">
-                                    <xsl:with-param name="pElement" select="$vServiceProvider/fhir:Organization/fhir:telecom" />
+                                    <!-- address duplicate Organization issue -->
+                                    <xsl:with-param name="pElement" select="$vServiceProvider/fhir:Organization[1]/fhir:telecom" />
                                 </xsl:call-template>
                                 <xsl:call-template name="get-addr">
-                                    <xsl:with-param name="pElement" select="$vServiceProvider/fhir:Organization/fhir:address[1]" />
+                                    <!-- address duplicate Organization issue -->
+                                    <xsl:with-param name="pElement" select="$vServiceProvider/fhir:Organization[1]/fhir:address[1]" />
                                     <xsl:with-param name="pNoNullAllowed" select="true()" />
                                 </xsl:call-template>
                             </serviceProviderOrganization>
@@ -274,11 +283,7 @@ limitations under the License.
         <!-- parameter to pass to the named template to indicate whether it should allow returning nothing (i.e. no nullFlavor filled element) 
              if the FHIR element doesn't exist - the responsibleParty requires some elements, whereas there aren't the same constrains on the encounterParticipant-->
         <xsl:param name="pNoNullAllowed" select="false()" />
-        
-        <xsl:variable name="vCurrentIg">
-            <xsl:call-template name="get-current-ig" />
-        </xsl:variable>
-        
+
         <assignedEntity>
             <!-- new 7/12/2021 -->
             <xsl:choose>
@@ -323,23 +328,28 @@ limitations under the License.
             <xsl:choose>
                 <xsl:when test="$pEncounterParticipant/fhir:Organization">
                     <representedOrganization>
-                        <xsl:apply-templates select="$pEncounterParticipant/fhir:Organization/fhir:identifier" />
+                        <!-- address duplicate Organization issue -->
+                        <xsl:apply-templates select="$pEncounterParticipant/fhir:Organization[1]/fhir:identifier" />
                         <xsl:call-template name="get-org-name">
-                            <xsl:with-param name="pElement" select="$pEncounterParticipant/fhir:Organization/fhir:name" />
+                            <!-- address duplicate Organization issue -->
+                            <xsl:with-param name="pElement" select="$pEncounterParticipant/fhir:Organization[1]/fhir:name" />
                             <xsl:with-param name="pNoNullAllowed" select="$pNoNullAllowed" />
                         </xsl:call-template>
-                        <xsl:apply-templates select="$pEncounterParticipant/fhir:Organization/fhir:telecom" />
+                        <!-- address duplicate Organization issue -->
+                        <xsl:apply-templates select="$pEncounterParticipant/fhir:Organization[1]/fhir:telecom" />
                         <!-- SG 20240308: eICR only allows one address here -->
                         <xsl:choose>
-                            <xsl:when test="$vCurrentIg = 'eICR'">
+                            <xsl:when test="$gvCurrentIg = 'eICR'">
                                 <xsl:call-template name="get-addr">
-                                    <xsl:with-param name="pElement" select="$pEncounterParticipant/fhir:Organization/fhir:address[1]" />
+                                    <!-- address duplicate Organization issue -->
+                                    <xsl:with-param name="pElement" select="$pEncounterParticipant/fhir:Organization[1]/fhir:address[1]" />
                                     <xsl:with-param name="pNoNullAllowed" select="$pNoNullAllowed" />
                                 </xsl:call-template>
                             </xsl:when>
                             <xsl:otherwise>
                                 <xsl:call-template name="get-addr">
-                                    <xsl:with-param name="pElement" select="$pEncounterParticipant/fhir:Organization/fhir:address" />
+                                    <!-- address duplicate Organization issue -->
+                                    <xsl:with-param name="pElement" select="$pEncounterParticipant/fhir:Organization[1]/fhir:address" />
                                     <xsl:with-param name="pNoNullAllowed" select="$pNoNullAllowed" />
                                 </xsl:call-template>
                             </xsl:otherwise>
@@ -348,23 +358,27 @@ limitations under the License.
                 </xsl:when>
                 <xsl:when test="$pServiceProvider/fhir:Organization">
                     <representedOrganization>
-                        <xsl:apply-templates select="$pServiceProvider/fhir:Organization/fhir:identifier" />
+                        <!-- address duplicate Organization issue -->
+                        <xsl:apply-templates select="$pServiceProvider/fhir:Organization[1]/fhir:identifier" />
                         <xsl:call-template name="get-org-name">
-                            <xsl:with-param name="pElement" select="$pServiceProvider/fhir:Organization/fhir:name" />
+                            <xsl:with-param name="pElement" select="$pServiceProvider/fhir:Organization[1]/fhir:name" />
                             <xsl:with-param name="pNoNullAllowed" select="$pNoNullAllowed" />
                         </xsl:call-template>
-                        <xsl:apply-templates select="$pServiceProvider/fhir:Organization/fhir:telecom" />
+                        <!-- address duplicate Organization issue -->
+                        <xsl:apply-templates select="$pServiceProvider/fhir:Organization[1]/fhir:telecom" />
                         <!-- SG 20240308: eICR only allows one address here -->
                         <xsl:choose>
-                            <xsl:when test="$vCurrentIg = 'eICR'">
+                            <xsl:when test="$gvCurrentIg = 'eICR'">
                                 <xsl:call-template name="get-addr">
-                                    <xsl:with-param name="pElement" select="$pServiceProvider/fhir:Organization/fhir:address[1]" />
+                                    <!-- address duplicate Organization issue -->
+                                    <xsl:with-param name="pElement" select="$pServiceProvider/fhir:Organization[1]/fhir:address[1]" />
                                     <xsl:with-param name="pNoNullAllowed" select="$pNoNullAllowed" />
                                 </xsl:call-template>
                             </xsl:when>
                             <xsl:otherwise>
                                 <xsl:call-template name="get-addr">
-                                    <xsl:with-param name="pElement" select="$pServiceProvider/fhir:Organization/fhir:address" />
+                                    <!-- address duplicate Organization issue -->
+                                    <xsl:with-param name="pElement" select="$pServiceProvider/fhir:Organization[1]/fhir:address" />
                                     <xsl:with-param name="pNoNullAllowed" select="$pNoNullAllowed" />
                                 </xsl:call-template>
                             </xsl:otherwise>
@@ -421,8 +435,7 @@ limitations under the License.
         <xsl:copy-of select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]/fhir:resource/fhir:Practitioner" />
     </xsl:template>
 
-    <xsl:template match="fhir:individual/fhir:reference[not(contains(@value, 'Practitioner/')) and not(contains(@value, 'PractitionerRole/'))]"
-        mode="encounter-participant">
+    <xsl:template match="fhir:individual/fhir:reference[not(contains(@value, 'Practitioner/')) and not(contains(@value, 'PractitionerRole/'))]" mode="encounter-participant">
         <xsl:for-each select=".">
             <xsl:variable name="referenceURI">
                 <xsl:call-template name="resolve-to-full-url">

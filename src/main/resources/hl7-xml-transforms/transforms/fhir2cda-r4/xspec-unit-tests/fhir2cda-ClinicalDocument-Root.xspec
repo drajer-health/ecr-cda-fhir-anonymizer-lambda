@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<x:description xmlns:x="http://www.jenitennison.com/xslt/xspec" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" stylesheet="../fhir2cda.xslt">
-
+<x:description xmlns:x="http://www.jenitennison.com/xslt/xspec" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" stylesheet="../fhir2cda.xslt"
+    run-as="external">
+    
     <!--Confirm the ClinicalDocument exists and all required CDA elements have been generated -->
     <x:scenario label="A. Scenario for testing template with match 'fhir:Composition">
-        <x:context href="../../../samples/fhir/xspec-test-files/XSPEC_eICR-FHIR-002_R2_1.xml" />
-
+        <x:context href="../../../samples/fhir/xspec-test-files/XSPEC_eICR_FHIR_3.1.1.xml" />
+        
         <!--Confirm the Clinical Document contains a realmCode element -->
         <x:expect label="A1. SHALL contain exactly one [1..1] realmCode=US (CONF:1198-16791)." test="count(/cda:ClinicalDocument/cda:realmCode/@code='US')=1" />
         <!--Confirm the Clinical Document-> contains a typeId element -->

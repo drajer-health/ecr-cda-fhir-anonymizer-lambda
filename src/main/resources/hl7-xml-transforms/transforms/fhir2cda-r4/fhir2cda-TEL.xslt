@@ -16,39 +16,87 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 -->
-<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="urn:hl7-org:v3" xmlns:lcg="http://www.lantanagroup.com"  xmlns:cda="urn:hl7-org:v3"
-  xmlns:fhir="http://hl7.org/fhir" version="2.0" exclude-result-prefixes="lcg xsl cda fhir">
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="urn:hl7-org:v3" xmlns:lcg="http://www.lantanagroup.com" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" version="2.0"
+    exclude-result-prefixes="lcg xsl cda fhir">
 
-  <xsl:template match="fhir:telecom | fhir:contact">
-    <xsl:param name="elementName" select="'telecom'" />
-    <xsl:variable name="uri-prefix">
-      <xsl:choose>
-        <xsl:when test="fhir:system/@value = 'phone'">tel:</xsl:when>
-        <xsl:when test="fhir:system/@value = 'email'">mailto:</xsl:when>
-        <xsl:when test="fhir:system/@value = 'fax'">fax:</xsl:when>
-      </xsl:choose>
-    </xsl:variable>
-    <xsl:element name="{$elementName}">
-      <xsl:attribute name="value">
-        <xsl:value-of select="$uri-prefix" />
-        <xsl:value-of select="fhir:value/@value" />
-      </xsl:attribute>
-      <xsl:call-template name="telecomUse" />
+    <xsl:template match="fhir:telecom | fhir:contact">
+        <xsl:param name="elementName" select="'telecom'" />
+        <xsl:variable name="uri-prefix">
+            <xsl:choose>
+                <xsl:when test="fhir:system/@value = 'phone'">tel:</xsl:when>
+                <xsl:when test="fhir:system/@value = 'email'">mailto:</xsl:when>
+                <xsl:when test="fhir:system/@value = 'fax'">fax:</xsl:when>
+            </xsl:choose>
+        </xsl:variable>
+        <xsl:element name="{$elementName}">
+            <xsl:choose>
+                <xsl:when
+                    test="fhir:extension/@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason' or fhir:value/fhir:extension/@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason'">
+                    <xsl:choose>
+                        <xsl:when test="fhir:extension/@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason'">
+                            <xsl:apply-templates select="fhir:extension[@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason']" mode="attribute-only" />
+                        </xsl:when>
+                        <xsl:when test="fhir:value/fhir:extension/@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason'">
+                            <xsl:apply-templates select="fhir:value/fhir:extension[@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason']" mode="attribute-only" />
+                        </xsl:when>
+                    </xsl:choose>
+                </xsl:when>
+                <xsl:otherwise>
+                    <xsl:attribute name="value">
+                        <xsl:value-of select="$uri-prefix" />
+                        <xsl:value-of select="fhir:value/@value" />
+                    </xsl:attribute>
+                    <xsl:call-template name="telecomUse" />
+                </xsl:otherwise>
+            </xsl:choose>
+            <xsl:apply-templates select="fhir:period">
+                <xsl:with-param name="pElementName" select="'useablePeriod'" />
+                <xsl:with-param name="pXSIType" select="'IVL_TS'" />
+            </xsl:apply-templates>
+        </xsl:element>
+    </xsl:template>
 
-    </xsl:element>
-  </xsl:template>
+    <!-- If pNoNullAllowed is missing or set to false(): outputs a nullFlavor telecom even if the telecom element doesn't exist
+       Use when the CDA requires a telecom 
+        If pNoNullAllowed is set to true: outputs nothing if the telecom element doesn't exist -->
+    <xsl:template name="get-telecom">
+        <xsl:param name="pElement" select="fhir:telecom" />
+        <xsl:param name="pNoNullAllowed" select="false()" />
 
-  <xsl:template name="telecomUse">
-    <xsl:param name="use" />
-    <xsl:attribute name="use">
-      <xsl:choose>
-        <xsl:when test="fhir:use/@value = 'home'">HP</xsl:when>
-        <xsl:when test="fhir:use/@value = 'work'">WP</xsl:when>
-        <xsl:when test="fhir:use/@value = 'mobile'">MC</xsl:when>
-        <!-- default to work -->
-        <xsl:otherwise>WP</xsl:otherwise>
-      </xsl:choose>
-    </xsl:attribute>
-  </xsl:template>
+        <xsl:choose>
+            <xsl:when test="$pElement/fhir:extension[@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason']">
+                <telecom>
+                    <xsl:apply-templates select="$pElement/fhir:extension[@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason']" mode="attribute-only" />
+                </telecom>
+            </xsl:when>
+            <xsl:when test="$pElement">
+                <xsl:variable name="vPotentialDupes">
+                    <xsl:apply-templates select="$pElement" />
+                </xsl:variable>
+                <xsl:for-each-group group-by="concat(@value, @use)" select="$vPotentialDupes/cda:telecom">
+                    <xsl:copy-of select="current-group()[1]" />
+                </xsl:for-each-group>
+            </xsl:when>
+            <xsl:when test="$pNoNullAllowed = true()" />
+            <xsl:otherwise>
+                <telecom nullFlavor="NI" />
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:template>
+
+    <xsl:template name="telecomUse">
+        <xsl:param name="use" />
+        <xsl:if test="fhir:use">
+            <xsl:attribute name="use">
+                <xsl:choose>
+                    <xsl:when test="fhir:use/@value = 'home'">HP</xsl:when>
+                    <xsl:when test="fhir:use/@value = 'work'">WP</xsl:when>
+                    <xsl:when test="fhir:use/@value = 'mobile'">MC</xsl:when>
+                    <!-- default to work -->
+                    <xsl:otherwise>WP</xsl:otherwise>
+                </xsl:choose>
+            </xsl:attribute>
+        </xsl:if>
+    </xsl:template>
 
 </xsl:stylesheet>

@@ -16,7 +16,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 -->
-<xsl:stylesheet exclude-result-prefixes="lcg xsl cda fhir sdtc" version="2.0" xmlns="urn:hl7-org:v3" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" xmlns:sdtc="urn:hl7-org:sdtc" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:stylesheet exclude-result-prefixes="lcg xsl cda fhir sdtc" version="2.0" xmlns="urn:hl7-org:v3" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com"
+    xmlns:sdtc="urn:hl7-org:sdtc" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 
     <xsl:import href="fhir2cda-utility.xslt" />
     <xsl:import href="fhir2cda-TS.xslt" />
@@ -47,26 +48,30 @@ limitations under the License.
     </xsl:template>
 
     <xsl:template name="make-record-target">
-        <!-- Variable for identification of IG - moved out of Global var because XSpec can't deal with global vars -->
-        <xsl:variable name="vCurrentIg">
-            <xsl:call-template name="get-current-ig" />
-        </xsl:variable>
         <recordTarget>
             <patientRole>
+                <xsl:choose>
+                    <!-- Check to see that at least one of the identifier isn't a DAR -->
+                    <xsl:when test="fhir:identifier/fhir:value">
+                        <xsl:apply-templates select="fhir:identifier[fhir:value]" />
 
-                <xsl:call-template name="get-id" />
+                    </xsl:when>
+                    <xsl:otherwise>
+                        <xsl:apply-templates select="fhir:identifier" />
+                    </xsl:otherwise>
+                </xsl:choose>
+
                 <xsl:variable name="vNoNullAllowed">
                     <xsl:choose>
-                        <xsl:when test="$vCurrentIg = 'HAI'">true</xsl:when>
+                        <xsl:when test="$gvCurrentIg = 'HAI'">true</xsl:when>
                         <xsl:otherwise>false</xsl:otherwise>
                     </xsl:choose>
-
                 </xsl:variable>
-                <!-- SG NOTE: Address isn't required for HAI IGs like it is for US Realm Header based IGs and US Realm Header only has address as MS -->
+                <!-- SG NOTE: Address isn't required for HAI IGs like it is for US Realm Header based IGs and US Core only has address as MS -->
                 <xsl:call-template name="get-addr">
                     <xsl:with-param name="pNoNullAllowed" select="$vNoNullAllowed" />
                 </xsl:call-template>
-                <!-- SG NOTE: Telecom isn't required for HAI IGs like it is for US Realm Header based IGs and US Realm Header only has address as MS -->
+                <!-- SG NOTE: Telecom isn't required for HAI IGs like it is for US Realm Header based IGs and US Core only has address as MS -->
                 <xsl:call-template name="get-telecom">
                     <xsl:with-param name="pNoNullAllowed" select="$vNoNullAllowed" />
                 </xsl:call-template>
@@ -75,22 +80,8 @@ limitations under the License.
                 <patient>
                     <xsl:call-template name="get-person-name" />
 
-                    <administrativeGenderCode codeSystem="2.16.840.1.113883.5.1" codeSystemName="AdministrativeGender">
-                        <xsl:choose>
-                            <xsl:when test="lower-case(fhir:gender/@value) = 'female'">
-                                <xsl:attribute name="code">F</xsl:attribute>
-                                <xsl:attribute name="displayName">Female</xsl:attribute>
-                            </xsl:when>
-                            <xsl:when test="lower-case(fhir:gender/@value) = 'male'">
-                                <xsl:attribute name="code">M</xsl:attribute>
-                                <xsl:attribute name="displayName">Male</xsl:attribute>
-                            </xsl:when>
-                            <xsl:when test="lower-case(fhir:gender/@value) = 'undifferentiated'">
-                                <xsl:attribute name="code">UN</xsl:attribute>
-                                <xsl:attribute name="displayName">Undifferentiated</xsl:attribute>
-                            </xsl:when>
-                        </xsl:choose>
-                    </administrativeGenderCode>
+                    <!-- administrativeGenderCode -->
+                    <xsl:apply-templates select="fhir:gender" />
 
                     <xsl:call-template name="get-time">
                         <xsl:with-param name="pElement" select="fhir:birthDate" />
@@ -115,7 +106,12 @@ limitations under the License.
                                 </xsl:otherwise>
                             </xsl:choose>
                         </xsl:when>
-                        <!-- Assume when deceasedDateTime isn't present that the patient is still alive -->
+                        <!-- When deceasedDateTime isn't present and deceasedBoolean is present set deceasedInd to true and deceasedTime to a nullFlavor of NI -->
+                        <xsl:when test="fhir:deceasedBoolean[@value = 'true']">
+                            <sdtc:deceasedInd value="true" />
+                            <sdtc:deceasedTime nullFlavor="NI" />
+                        </xsl:when>
+                        <!-- Assume when deceasedDateTime isn't present and when deceasedBoolean isn't present that the patient is still alive -->
                         <xsl:otherwise>
                             <sdtc:deceasedInd value="false" />
                         </xsl:otherwise>
@@ -130,21 +126,46 @@ limitations under the License.
                     </xsl:choose>
 
                     <xsl:apply-templates select="fhir:extension[@url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race']" />
+                    <xsl:if test="not(fhir:extension[@url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race'])">
+                        <raceCode nullFlavor="NI" />
+                    </xsl:if>
                     <xsl:apply-templates select="fhir:extension[@url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity']" />
+                    <xsl:if test="not(fhir:extension[@url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity'])">
+                        <ethnicGroupCode nullFlavor="NI" />
+                    </xsl:if>
 
 
                     <!-- Check for guardian information -->
                     <!-- Added Cerner local code (1156) for Guardian -->
-                    <xsl:for-each select="fhir:contact[fhir:relationship/fhir:coding/fhir:code[@value = 'GUARD' or @value = '1156']]">
+                    <!-- Added http://hl7.org/fhir/R4/v2/0131/index.html code for Next of kin (N) -->
+                    <xsl:for-each select="fhir:contact[fhir:relationship/fhir:coding/fhir:code[@value = 'GUARD' or @value = '1156' or @value = 'N']]">
                         <guardian>
                             <xsl:apply-templates select="fhir:address" />
                             <xsl:apply-templates select="fhir:telecom" />
-                            <guardianPerson>
-                                <xsl:apply-templates select="fhir:name" />
-                            </guardianPerson>
+                            <xsl:choose>
+                                <xsl:when test="fhir:name">
+                                    <guardianPerson>
+                                        <xsl:apply-templates select="fhir:name" />
+                                    </guardianPerson>
+                                </xsl:when>
+                                <!-- guardianOrganization not allowed in C-CDA (only guardianPerson) -->
+                                <!--<xsl:when test="fhir:organization">
+                                    <!-\- guardianOrganization -\->
+                                    <xsl:for-each select="fhir:organization/fhir:reference">
+                                        <xsl:variable name="referenceURI">
+                                            <xsl:call-template name="resolve-to-full-url">
+                                                <xsl:with-param name="referenceURI" select="@value" />
+                                            </xsl:call-template>
+                                        </xsl:variable>
+                                        <xsl:for-each select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]">
+                                            <xsl:apply-templates select="fhir:resource/fhir:*" mode="guardianOrganization" />
+                                        </xsl:for-each>
+                                    </xsl:for-each>
+                                </xsl:when>-->
+                            </xsl:choose>
                         </guardian>
                     </xsl:for-each>
-                    
+
                     <xsl:apply-templates select="fhir:extension[@url = 'http://hl7.org/fhir/StructureDefinition/patient-birthPlace']" />
 
                     <xsl:choose>
@@ -155,7 +176,15 @@ limitations under the License.
                             <xsl:for-each select="fhir:communication[fhir:language/fhir:coding/fhir:system/@value = 'urn:ietf:bcp:47']">
                                 <languageCommunication>
                                     <languageCode>
-                                        <xsl:attribute name="code" select="fhir:language/fhir:coding/fhir:code/@value" />
+                                        <xsl:choose>
+                                            <xsl:when test="fhir:language/fhir:coding/fhir:code/not(@value = '')">
+                                                <xsl:attribute name="code" select="fhir:language/fhir:coding/fhir:code/@value" />
+                                            </xsl:when>
+                                            <xsl:otherwise>
+                                                <xsl:attribute name="nullFlavor" select="'NI'" />
+                                            </xsl:otherwise>
+                                        </xsl:choose>
+
                                     </languageCode>
                                     <xsl:if test="fhir:preferred/@value = 'true'">
                                         <preferenceInd value="true" />
@@ -174,9 +203,126 @@ limitations under the License.
                         </xsl:otherwise>
                     </xsl:choose>
                 </patient>
+                <!-- providerOrganization -->
+                <xsl:for-each select="fhir:managingOrganization/fhir:reference">
+                    <xsl:variable name="referenceURI">
+                        <xsl:call-template name="resolve-to-full-url">
+                            <xsl:with-param name="referenceURI" select="@value" />
+                        </xsl:call-template>
+                    </xsl:variable>
+                    <xsl:for-each select="//fhir:entry[fhir:fullUrl/@value = $referenceURI]">
+                        <xsl:apply-templates select="fhir:resource/fhir:*" mode="providerOrganization" />
+                    </xsl:for-each>
+                </xsl:for-each>
             </patientRole>
         </recordTarget>
     </xsl:template>
+
+    <xsl:template match="fhir:gender">
+        <xsl:choose>
+            <xsl:when test="fhir:extension/@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason'">
+                <administrativeGenderCode>
+                    <xsl:apply-templates select="fhir:extension[@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason']" mode="attribute-only" />
+                </administrativeGenderCode>
+            </xsl:when>
+            <xsl:when test="lower-case(@value) = 'other'">
+                <administrativeGenderCode>
+                    <xsl:attribute name="nullFlavor">OTH</xsl:attribute>
+                </administrativeGenderCode>
+            </xsl:when>
+            <xsl:when test="lower-case(@value) = 'unknown'">
+                <administrativeGenderCode>
+                    <xsl:attribute name="nullFlavor">UNK</xsl:attribute>
+                </administrativeGenderCode>
+            </xsl:when>
+
+            <xsl:otherwise>
+                <administrativeGenderCode codeSystem="2.16.840.1.113883.5.1" codeSystemName="AdministrativeGender">
+                    <xsl:choose>
+
+                        <xsl:when test="lower-case(@value) = 'female'">
+                            <xsl:attribute name="code">F</xsl:attribute>
+                            <xsl:attribute name="displayName">Female</xsl:attribute>
+                        </xsl:when>
+                        <xsl:when test="lower-case(@value) = 'male'">
+                            <xsl:attribute name="code">M</xsl:attribute>
+                            <xsl:attribute name="displayName">Male</xsl:attribute>
+                        </xsl:when>
+                        <xsl:when test="lower-case(@value) = 'undifferentiated'">
+                            <xsl:attribute name="code">UN</xsl:attribute>
+                            <xsl:attribute name="displayName">Undifferentiated</xsl:attribute>
+                        </xsl:when>
+                        <xsl:when test="lower-case(@value) = 'other'">
+                            <xsl:apply-templates select="@value" mode="attribute-only" />
+
+                        </xsl:when>
+                        <xsl:when test="lower-case(@value) = 'unknown'">
+                            <xsl:apply-templates select="@value" mode="attribute-only" />
+                        </xsl:when>
+
+                    </xsl:choose>
+                </administrativeGenderCode>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:template>
+
+    <xsl:template match="fhir:Organization" mode="providerOrganization">
+        <providerOrganization>
+            <xsl:choose>
+                <xsl:when test="fhir:identifier">
+                    <xsl:apply-templates select="fhir:identifier" />
+                </xsl:when>
+                <xsl:otherwise>
+                    <id nullFlavor="NI" />
+                </xsl:otherwise>
+            </xsl:choose>
+
+            <xsl:if test="fhir:name">
+                <xsl:call-template name="get-org-name" />
+            </xsl:if>
+
+            <xsl:call-template name="get-telecom" />
+
+            <xsl:choose>
+                <xsl:when test="fhir:address">
+                    <xsl:apply-templates select="fhir:address" />
+                </xsl:when>
+                <xsl:otherwise>
+                    <addr nullFlavor="NI" />
+                </xsl:otherwise>
+            </xsl:choose>
+
+        </providerOrganization>
+    </xsl:template>
+
+    <!--<xsl:template match="fhir:Organization" mode="guardianOrganization">
+        <guardianOrganization>
+            <xsl:choose>
+                <xsl:when test="fhir:identifier">
+                    <xsl:apply-templates select="fhir:identifier" />
+                </xsl:when>
+                <xsl:otherwise>
+                    <id nullFlavor="NI" />
+                </xsl:otherwise>
+            </xsl:choose>
+
+            <xsl:if test="fhir:name">
+                <xsl:call-template name="get-org-name" />
+            </xsl:if>
+
+            <xsl:call-template name="get-telecom" />
+
+            <xsl:choose>
+                <xsl:when test="fhir:address">
+                    <xsl:apply-templates select="fhir:address" />
+                </xsl:when>
+                <xsl:otherwise>
+                    <addr nullFlavor="NI" />
+                </xsl:otherwise>
+            </xsl:choose>
+
+        </guardianOrganization>
+    </xsl:template>-->
 
     <xsl:template name="make-record-target-from-group">
         <recordTarget>
@@ -234,11 +380,11 @@ limitations under the License.
 
     <!-- birthplace -->
     <xsl:template match="fhir:extension[@url = 'http://hl7.org/fhir/StructureDefinition/patient-birthPlace']">
-        <xsl:for-each select="fhir:valueAddress">        
+        <xsl:for-each select="fhir:valueAddress">
             <birthplace>
                 <place>
-                    <xsl:call-template name="get-addr" >
-                        <xsl:with-param name="pElement" select="."/>
+                    <xsl:call-template name="get-addr">
+                        <xsl:with-param name="pElement" select="." />
                     </xsl:call-template>
                 </place>
             </birthplace>
