@@ -224,7 +224,7 @@
                     <xsl:if test="cda:low/@value">
                         <start value="{lcg:cdaTS2date(cda:low/@value)}" />
                     </xsl:if>
-                    <xsl:if test="cda:high/@value">
+                    <xsl:if test="cda:high/@value and ((cda:high/@value > cda:low/@value) or not(cda:low/@value))">
                         <end value="{lcg:cdaTS2date(cda:high/@value)}" />
                     </xsl:if>
                 </period>
@@ -249,7 +249,7 @@
                     <xsl:if test="cda:low/@value">
                         <start value="{lcg:cdaTS2date(cda:low/@value)}" />
                     </xsl:if>
-                    <xsl:if test="cda:high/@value">
+                    <xsl:if test="cda:high/@value and ((cda:high/@value > cda:low/@value) or not(cda:low/@value))">
                         <end value="{lcg:cdaTS2date(cda:high/@value)}" />
                     </xsl:if>
                 </period>
@@ -421,7 +421,7 @@
         <xsl:if test="cda:low[@value]">
             <start value="{lcg:cdaTS2date(cda:low/@value)}" />
         </xsl:if>
-        <xsl:if test="cda:high[@value]">
+        <xsl:if test="cda:high[@value] and ((cda:high/@value > cda:low/@value) or not(cda:low/@value))">
             <end value="{lcg:cdaTS2date(cda:high/@value)}" />
         </xsl:if>
         <xsl:if test="@value and not(cda:low/@value)">
@@ -440,7 +440,7 @@
                 <xsl:apply-templates select="cda:low/@nullFlavor" mode="data-absent-reason-extension" />
             </end>
         </xsl:if>
-        <xsl:if test="not(@value) and cda:low/@nullFlavor">
+        <xsl:if test="not(@value) and cda:low/@nullFlavor and not(cda:high)">
             <start>
                 <xsl:apply-templates select="cda:low/@nullFlavor" mode="data-absent-reason-extension" />
             </start>
@@ -458,7 +458,7 @@
                         </xsl:attribute>
                     </start>
                 </xsl:if>
-                <xsl:if test="cda:high">
+                <xsl:if test="cda:high and ((cda:high/@value > cda:low/@value) or not(cda:low/@value))">
                     <end>
                         <xsl:attribute name="value">
                             <xsl:value-of select="lcg:cdaTS2date(cda:high/@value)" />
@@ -494,7 +494,7 @@
                             </xsl:attribute>
                         </start>
                     </xsl:if>
-                    <xsl:if test="cda:high">
+                    <xsl:if test="cda:high and ((cda:high/@value > cda:low/@value) or not(cda:low/@value))">
                         <end>
                             <xsl:attribute name="value">
                                 <xsl:value-of select="lcg:cdaTS2date(cda:high/@value)" />
@@ -524,7 +524,7 @@
                             </xsl:attribute>
                         </start>
                     </xsl:if>
-                    <xsl:if test="cda:high">
+                    <xsl:if test="cda:high and ((cda:high/@value > cda:low/@value) or not(cda:low/@value))">
                         <end>
                             <xsl:attribute name="value">
                                 <xsl:value-of select="lcg:cdaTS2date(cda:high/@value)" />
@@ -562,7 +562,7 @@
             </xsl:when>
             <xsl:when test="@nullFlavor">
                 <xsl:comment>INFO: CDA effectiveTime/time was null</xsl:comment>
-                <xsl:copy />
+<!--                <xsl:copy />-->
             </xsl:when>
             <xsl:otherwise>
                 <xsl:comment>WARNING: Unknown effective time format</xsl:comment>
