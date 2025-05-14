@@ -7,13 +7,13 @@
 	<version>1.0.21</version>
 	<packaging>jar</packaging>
 	<properties>
-		<fhir.version>6.2.1</fhir.version>
-		<fhirpath.version>6.2.1</fhirpath.version>
+		<fhir.version>6.4.0</fhir.version>
+		<fhirpath.version>6.4.0</fhirpath.version>
 		<aws.sdk.s3.version>1.12.773</aws.sdk.s3.version>
 		<junit.version>4.13.1</junit.version>
 		<httpclient.version>4.5.2</httpclient.version>
-		<fhirutilities.version>6.3.31</fhirutilities.version>
-		<fhirr4.version>6.3.32</fhirr4.version>
+		<fhirutilities.version>6.4.0</fhirutilities.version>
+		<fhirr4.version>6.4.0</fhirr4.version>
 		<guava.version>33.3.1-jre</guava.version>
 		<commons.io.version>2.17.0</commons.io.version>
 		<commonstext.version>1.12.0</commonstext.version>
