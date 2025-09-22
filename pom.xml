@@ -19,6 +19,7 @@
 		<commonstext.version>1.12.0</commonstext.version>
 		<commonscodec.version>1.17.1</commonscodec.version>
 		<commonsnet.version>3.11.1</commonsnet.version>
+		<spring.core.version>6.2.11</spring.core.version>
 	</properties>
 
 	<build>
@@ -292,7 +293,7 @@
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-core</artifactId>
-			<version>5.3.14</version>
+			<version>${spring.core.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>ca.uhn.hapi.fhir</groupId>
