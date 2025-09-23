@@ -4,21 +4,23 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.drajer.ecr.anonymizer</groupId>
 	<artifactId>ecr-cda-fhir-anonymizer-lambda</artifactId>
-	<version>1.0.21</version>
+	<version>1.0.22</version>
 	<packaging>jar</packaging>
 	<properties>
 		<fhir.version>6.4.0</fhir.version>
 		<fhirpath.version>6.4.0</fhirpath.version>
 		<aws.sdk.s3.version>1.12.773</aws.sdk.s3.version>
 		<junit.version>4.13.1</junit.version>
-		<httpclient.version>4.5.2</httpclient.version>
+		<httpclient.version>4.5.14</httpclient.version>
 		<fhirutilities.version>6.4.0</fhirutilities.version>
 		<fhirr4.version>6.4.0</fhirr4.version>
 		<guava.version>33.3.1-jre</guava.version>
 		<commons.io.version>2.17.0</commons.io.version>
-		<commonstext.version>1.12.0</commonstext.version>
+		<commonstext.version>1.14.0</commonstext.version>
 		<commonscodec.version>1.17.1</commonscodec.version>
-		<commonsnet.version>3.11.1</commonsnet.version>
+		<commonsnet.version>3.12.0</commonsnet.version>
+		<spring.core.version>6.2.11</spring.core.version>
+		<common.lang3.version>3.18.0</common.lang3.version>
 	</properties>
 
 	<build>
@@ -292,7 +294,7 @@
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-core</artifactId>
-			<version>5.3.14</version>
+			<version>${spring.core.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>ca.uhn.hapi.fhir</groupId>
@@ -381,6 +383,11 @@
 		    <groupId>javax.xml.bind</groupId>
 		    <artifactId>jaxb-api</artifactId>
 		    <version>2.3.1</version>
+		</dependency>		
+		<dependency>
+		    <groupId>org.apache.commons</groupId>
+		    <artifactId>commons-lang3</artifactId>
+		    <version>${common.lang3.version}</version>
 		</dependency>		
 	</dependencies>
 </project>
