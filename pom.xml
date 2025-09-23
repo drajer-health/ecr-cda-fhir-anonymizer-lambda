@@ -11,7 +11,7 @@
 		<fhirpath.version>6.4.0</fhirpath.version>
 		<aws.sdk.s3.version>1.12.773</aws.sdk.s3.version>
 		<junit.version>4.13.1</junit.version>
-		<httpclient.version>5.5</httpclient.version>
+		<httpclient.version>4.5.14</httpclient.version>
 		<fhirutilities.version>6.4.0</fhirutilities.version>
 		<fhirr4.version>6.4.0</fhirr4.version>
 		<guava.version>33.3.1-jre</guava.version>
@@ -223,8 +223,8 @@
 			</exclusions>		    
 		</dependency>
 		<dependency>
-			<groupId>org.apache.httpcomponents.client5</groupId>
-			<artifactId>httpclient5</artifactId>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient</artifactId>
 			<version>${httpclient.version}</version>
 			<exclusions>
 				<exclusion>
