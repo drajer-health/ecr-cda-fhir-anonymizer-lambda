@@ -3,7 +3,7 @@
     xmlns:cda="urn:hl7-org:v3" 
     xmlns:fhir="http://hl7.org/fhir" 
     xmlns:lcg="http://www.lantanagroup.com" 
-    stylesheet="../SaxonPE-cda2fhir.xslt" run-as="external">
+    stylesheet="../NativeUUIDGen-cda2fhir.xslt" run-as="external">
     <!-- eICR -->
     <x:scenario label="A. Scenario for testing eICR Composition elements">
         <x:context href="../../../samples/cda/xspec-test-files/XSPEC_eICR-CDA-001_R3_1.xml" />
@@ -23,7 +23,11 @@
         <!-- Validate the Composition Language-->
         <x:expect label="A7. There should be a Composition.language value=en-US" test="count(//fhir:Composition/fhir:language[@value='en-US'])=1" />
         <!-- Validate the Composition Date-->
-        <x:expect label="A8. There should be a Composition.date value=2020-11-07T09:44:21.000-05:00" test="count(//fhir:Composition/fhir:date[@value='2020-11-07T09:44:21.000-05:00'])=1" />
+        <!-- 20260811 Claude (CDAFHIR-001 seconds): was '...21.000-05:00'. The source states whole seconds
+             (20201107094421-0500) and no fraction, so the '.000' was fabricated. The new value is the one
+             the source actually asserts; the companion below pins that the invented form is gone. -->
+        <x:expect label="A8. There should be a Composition.date value=2020-11-07T09:44:21-05:00" test="count(//fhir:Composition/fhir:date[@value='2020-11-07T09:44:21-05:00'])=1" />
+        <x:expect label="A8b. OLD SHAPE IS GONE: no Composition.date with an invented millisecond part" test="count(//fhir:Composition/fhir:date[@value='2020-11-07T09:44:21.000-05:00'])=0" />
         <!-- Validate the Composition Confidentiality-->
         <x:expect label="A9. There should be a Composition.confidentiality value=N" test="count(//fhir:Composition/fhir:confidentiality[@value='N'])=1" />
         <!-- Validate the Composition Title-->
@@ -96,7 +100,8 @@
         <!-- Validate the Composition Language-->
         <x:expect label="C7. There should be a Composition.language value=en-US" test="count(//fhir:Composition/fhir:language[@value='en-US'])=1" />
         <!-- Validate the Composition Date-->
-        <x:expect label="C8. There should be a Composition.date value=2017-11-14T12:15:00.000-07:00" test="count(//fhir:Composition/fhir:date[@value='2017-11-14T12:15:00.000-07:00'])=1" />
+        <!-- 20260811 Claude (CDAFHIR-001 seconds): was '...00.000-07:00'; the RR header states no fraction. -->
+        <x:expect label="C8. There should be a Composition.date value=2017-11-14T12:15:00-07:00" test="count(//fhir:Composition/fhir:date[@value='2017-11-14T12:15:00-07:00'])=1" />
         <!-- Validate the Composition Confidentiality-->
         <x:expect label="C9. There should be a Composition.confidentiality value=N" test="count(//fhir:Composition/fhir:confidentiality[@value='N'])=1" />
         <!-- Validate the Composition Title-->
@@ -151,5 +156,86 @@
         <x:expect label="D13. There shall be a reference to a rr-relevant-reportable-condition-observation"
             test="count(//fhir:Composition/fhir:section[fhir:code/fhir:coding/fhir:code/@value='55112-7']/fhir:entry/fhir:reference[@value=//fhir:entry[fhir:resource/fhir:Observation/fhir:meta/fhir:profile/@value='http://hl7.org/fhir/us/ecr/StructureDefinition/rr-relevant-reportable-condition-observation']/fhir:fullUrl/@value])=1"
          />
+    </x:scenario>
+
+    <!-- 20260902 Claude (register B1-complex, SG decision 2026-09-02): Composition.title is 1..1 in
+         both eicr-composition and rr-composition, so the house omit-when-absent convention is
+         unavailable and the unguarded value-of emitted value="" (a "value cannot be empty" validator
+         error) when ClinicalDocument/title was absent, empty, or null-flavored without text. Latent -
+         zero corpus reachability (all 37 corpus documents carry a non-empty title; probed 2026-09-02).
+         SG's fallback: always "Initial Public Health Case Report". Scenarios A10 (eICR) and C10 (RR)
+         above already pin the pass-through of a REAL source title, so these three only cover the
+         fallback. Whitespace-only content cannot be probed from an inline context (XSpec strips
+         whitespace-only text nodes, verified 2026-09-02 - the old G scenario silently became the
+         empty case), but normalize-space() covers it by construction. Negative control 2026-09-02:
+         the pre-fix (520395a) stylesheet fails E1/E2/F1/F2; G is a faithfulness pin that passes both
+         states, like A10/C10. -->
+    <x:scenario label="E. an absent ClinicalDocument/title falls back to the SG-decided constant">
+        <x:context select="/cda:ClinicalDocument" xmlns="urn:hl7-org:v3">
+            <ClinicalDocument xmlns="urn:hl7-org:v3">
+                <templateId root="2.16.840.1.113883.10.20.15.2" extension="2022-05-01" />
+                <effectiveTime value="20260101120000+0000" />
+                <languageCode code="en-US" />
+                <recordTarget>
+                    <patientRole>
+                        <id root="2.16.840.1.113883.19.5" extension="12345" />
+                        <patient>
+                            <name use="L"><given>No</given><family>Title</family></name>
+                        </patient>
+                    </patientRole>
+                </recordTarget>
+            </ClinicalDocument>
+        </x:context>
+        <x:expect label="E1. the fallback title is emitted"
+            test="count(fhir:Composition/fhir:title[@value = 'Initial Public Health Case Report']) = 1" />
+        <x:expect label="E2. exactly one title, and never an empty one (the old value='' shape)"
+            test="count(fhir:Composition/fhir:title) = 1 and count(fhir:Composition/fhir:title[@value = '']) = 0" />
+    </x:scenario>
+
+    <x:scenario label="F. a null-flavored, contentless title falls back - the nullFlavor is not misread as text">
+        <x:context select="/cda:ClinicalDocument" xmlns="urn:hl7-org:v3">
+            <ClinicalDocument xmlns="urn:hl7-org:v3">
+                <templateId root="2.16.840.1.113883.10.20.15.2" extension="2022-05-01" />
+                <title nullFlavor="NI" />
+                <effectiveTime value="20260101120000+0000" />
+                <languageCode code="en-US" />
+                <recordTarget>
+                    <patientRole>
+                        <id root="2.16.840.1.113883.19.5" extension="12345" />
+                        <patient>
+                            <name use="L"><given>Null</given><family>Title</family></name>
+                        </patient>
+                    </patientRole>
+                </recordTarget>
+            </ClinicalDocument>
+        </x:context>
+        <x:expect label="F1. the fallback title is emitted"
+            test="count(fhir:Composition/fhir:title[@value = 'Initial Public Health Case Report']) = 1" />
+        <x:expect label="F2. no empty title survives"
+            test="count(fhir:Composition/fhir:title[@value = '']) = 0" />
+    </x:scenario>
+
+    <x:scenario label="G. a title carrying BOTH a nullFlavor and text keeps its text - faithfulness outranks the flavor">
+        <x:context select="/cda:ClinicalDocument" xmlns="urn:hl7-org:v3">
+            <ClinicalDocument xmlns="urn:hl7-org:v3">
+                <templateId root="2.16.840.1.113883.10.20.15.2" extension="2022-05-01" />
+                <title nullFlavor="OTH">Special Case Report</title>
+                <effectiveTime value="20260101120000+0000" />
+                <languageCode code="en-US" />
+                <recordTarget>
+                    <patientRole>
+                        <id root="2.16.840.1.113883.19.5" extension="12345" />
+                        <patient>
+                            <name use="L"><given>Has</given><family>Text</family></name>
+                        </patient>
+                    </patientRole>
+                </recordTarget>
+            </ClinicalDocument>
+        </x:context>
+        <x:expect label="G1. the source text passes through untouched"
+            test="count(fhir:Composition/fhir:title[@value = 'Special Case Report']) = 1" />
+        <x:expect label="G2. the fallback does NOT fire when the source asserted text"
+            test="count(fhir:Composition/fhir:title[@value = 'Initial Public Health Case Report']) = 0" />
+        <x:expect label="G3. exactly one title" test="count(fhir:Composition/fhir:title) = 1" />
     </x:scenario>
 </x:description>

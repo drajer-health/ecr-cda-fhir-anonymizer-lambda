@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<x:description xmlns:x="http://www.jenitennison.com/xslt/xspec" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" stylesheet="../SaxonPE-cda2fhir.xslt" run-as="external">
+<x:description xmlns:x="http://www.jenitennison.com/xslt/xspec" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" stylesheet="../NativeUUIDGen-cda2fhir.xslt" run-as="external">
 
     <x:scenario label="A. Scenario for testing template with match 'cda:location">
         <x:context href="../../../samples/cda/xspec-test-files/XSPEC_eICR-CDA-001_R3_1.xml" />
@@ -19,4 +19,140 @@
         <x:expect label="A7. The Encounter Location has one telecom"
             test="count(//fhir:fullUrl[following-sibling::fhir:resource/fhir:Location][@value=//fhir:Encounter/fhir:location/fhir:location/fhir:reference/@value]/following-sibling::fhir:resource/fhir:Location/fhir:telecom) = 2" />
     </x:scenario>
+
+    <!-- 20260729 Claude: regression tests for the Service Delivery Location defects the FHIR
+         validator surfaced (us-ph-location requires identifier 1..* and type 1..*, and
+         eicr-encounter constrains Encounter.location.location to us-ph-location, so a Location
+         missing either one also broke the Encounter's reference match). meta.profile is NOT
+         asserted here: it comes from get-profile-for-ig, which needs $gvCurrentIg, which needs a
+         ClinicalDocument - out of reach for a bare fragment. That path is covered end to end by
+         transforms/integration-tests (testProc). -->
+
+    <x:scenario label="Service Delivery Location (4.32) participant maps id and code">
+        <x:context>
+            <participant typeCode="LOC" xmlns="urn:hl7-org:v3">
+                <participantRole classCode="SDLOC">
+                    <templateId root="2.16.840.1.113883.10.20.22.4.32"/>
+                    <id root="2.16.840.1.113883.19.5" extension="loc9"/>
+                    <code code="1096-7" codeSystem="2.16.840.1.113883.6.259" displayName="Operating Room/Suite"/>
+                    <addr><streetAddressLine>9 Theatre St</streetAddressLine><city>Boston</city><state>MA</state><postalCode>02101</postalCode></addr>
+                    <telecom value="tel:+1-617-555-9999"/>
+                    <playingEntity classCode="PLC"><name>Main Operating Theatre</name></playingEntity>
+                </participantRole>
+            </participant>
+        </x:context>
+
+        <x:expect label="participantRole/id becomes Location.identifier (was dropped; us-ph-location requires identifier 1..*)"
+            test="count(fhir:Location/fhir:identifier[fhir:value/@value = 'loc9']) = 1" />
+        <x:expect label="participantRole/code becomes Location.type (was dropped; us-ph-location requires type 1..*)"
+            test="count(fhir:Location/fhir:type/fhir:coding[fhir:code/@value = '1096-7']) = 1" />
+        <x:expect label="playingEntity/name is still used for Location.name"
+            test="count(fhir:Location/fhir:name[@value = 'Main Operating Theatre']) = 1" />
+        <x:expect label="addr and telecom are still carried"
+            test="count(fhir:Location/fhir:address) = 1 and count(fhir:Location/fhir:telecom) = 1" />
+    </x:scenario>
+
+
+  <!-- 20260731 Claude: defect item 42 - the Location built from an authoring device's assignedAuthor
+       (referenced by Device.location) had no name when the author carries no representedOrganization,
+       which is the normal shape for device authors: 17 of 34 corpus documents. Absent names now get the
+       data-absent-reason extension; a present representedOrganization name is used as before. -->
+  <x:scenario label="Authoring-device Location without representedOrganization gets a data-absent-reason name">
+    <x:context>
+      <assignedAuthor xmlns="urn:hl7-org:v3" xmlns:lcg="http://www.lantanagroup.com" lcg:uuid="90000000-0000-0000-0000-000000000010">
+        <id root="2.16.840.1.113883.3.72.5.20" />
+        <addr>
+          <streetAddressLine>1002 Healthcare Drive</streetAddressLine>
+          <city>Ann Arbor</city>
+          <state>MI</state>
+          <postalCode>99999</postalCode>
+        </addr>
+        <telecom use="WP" value="tel:+1-555-555-1212" />
+        <assignedAuthoringDevice lcg:uuid="90000000-0000-0000-0000-000000000011">
+          <manufacturerModelName>Acme</manufacturerModelName>
+          <softwareName>AcmeEHR</softwareName>
+        </assignedAuthoringDevice>
+      </assignedAuthor>
+    </x:context>
+    <x:expect label="a Location entry is produced" test="count(fhir:entry/fhir:resource/fhir:Location) = 1" />
+    <x:expect label="name carries the data-absent-reason extension, no value"
+      test="count(fhir:entry/fhir:resource/fhir:Location/fhir:name[not(@value)]/fhir:extension[@url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason']/fhir:valueCode[@value = 'unknown']) = 1" />
+    <x:expect label="address still mapped" test="count(fhir:entry/fhir:resource/fhir:Location/fhir:address/fhir:city[@value = 'Ann Arbor']) = 1" />
+  </x:scenario>
+
+  <x:scenario label="Authoring-device Location with a representedOrganization keeps the real name">
+    <x:context>
+      <assignedAuthor xmlns="urn:hl7-org:v3" xmlns:lcg="http://www.lantanagroup.com" lcg:uuid="90000000-0000-0000-0000-000000000012">
+        <id root="2.16.840.1.113883.3.72.5.20" />
+        <addr><city>Ann Arbor</city></addr>
+        <assignedAuthoringDevice lcg:uuid="90000000-0000-0000-0000-000000000013">
+          <softwareName>AcmeEHR</softwareName>
+        </assignedAuthoringDevice>
+        <representedOrganization>
+          <name>Good Health Hospital</name>
+        </representedOrganization>
+      </assignedAuthor>
+    </x:context>
+    <x:expect label="real name used, no data-absent-reason"
+      test="count(fhir:entry/fhir:resource/fhir:Location/fhir:name[@value = 'Good Health Hospital'][not(fhir:extension)]) = 1" />
+  </x:scenario>
+
+  <!-- 20260803 Claude (CDAFHIR-019): the eICR type-absorption loop emitted one Location.type per
+       Encounter Activity SDLOC code, so repeated codes across activities produced duplicate types.
+       Now grouped by codeSystem+code (and null-flavored codes skipped). Inline whole-document
+       context because $gvCurrentIg and the //-loop need a real document root. -->
+  <x:scenario label="healthCareFacility Location absorbs Encounter Activity SDLOC types deduplicated by code">
+    <x:context select="//cda:location">
+      <ClinicalDocument xmlns="urn:hl7-org:v3" lcg:uuid="00000000-0000-0000-0000-0000000000fa">
+        <templateId root="2.16.840.1.113883.10.20.15.2" />
+        <component>
+          <structuredBody>
+            <component>
+              <section>
+                <templateId root="2.16.840.1.113883.10.20.22.2.22.1" />
+                <entry>
+                  <encounter classCode="ENC" moodCode="EVN" lcg:uuid="00000000-0000-0000-0000-0000000000fb">
+                    <templateId root="2.16.840.1.113883.10.20.22.4.49" />
+                    <participant typeCode="LOC">
+                      <participantRole classCode="SDLOC" lcg:uuid="00000000-0000-0000-0000-0000000000fc">
+                        <code code="1160-1" codeSystem="2.16.840.1.113883.6.259" displayName="Urgent Care Center" />
+                      </participantRole>
+                    </participant>
+                  </encounter>
+                </entry>
+                <entry>
+                  <encounter classCode="ENC" moodCode="EVN" lcg:uuid="00000000-0000-0000-0000-0000000000fd">
+                    <templateId root="2.16.840.1.113883.10.20.22.4.49" />
+                    <participant typeCode="LOC">
+                      <participantRole classCode="SDLOC" lcg:uuid="00000000-0000-0000-0000-0000000000fe">
+                        <code code="1160-1" codeSystem="2.16.840.1.113883.6.259" displayName="Urgent Care Center" />
+                      </participantRole>
+                    </participant>
+                    <participant typeCode="LOC">
+                      <participantRole classCode="SDLOC" lcg:uuid="00000000-0000-0000-0000-0000000000ff">
+                        <code code="1108-0" codeSystem="2.16.840.1.113883.6.259" displayName="Emergency Department" />
+                      </participantRole>
+                    </participant>
+                  </encounter>
+                </entry>
+              </section>
+            </component>
+          </structuredBody>
+        </component>
+        <componentOf>
+          <encompassingEncounter lcg:uuid="00000000-0000-0000-0000-000000000100">
+            <location lcg:uuid="00000000-0000-0000-0000-000000000101">
+              <healthCareFacility lcg:uuid="00000000-0000-0000-0000-000000000102">
+                <id root="00000000-0000-0000-0000-000000000103" />
+              </healthCareFacility>
+            </location>
+          </encompassingEncounter>
+        </componentOf>
+      </ClinicalDocument>
+    </x:context>
+    <x:expect label="two distinct types, not three - the repeated 1160-1 is emitted once"
+      test="count(fhir:Location/fhir:type) = 2" />
+    <x:expect label="both distinct codes survive"
+      test="count(fhir:Location/fhir:type/fhir:coding/fhir:code[@value = '1160-1']) = 1 and count(fhir:Location/fhir:type/fhir:coding/fhir:code[@value = '1108-0']) = 1" />
+  </x:scenario>
 </x:description>

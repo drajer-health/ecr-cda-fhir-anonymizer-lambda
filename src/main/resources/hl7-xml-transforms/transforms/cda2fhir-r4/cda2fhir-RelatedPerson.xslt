@@ -15,12 +15,20 @@
     </xsl:template>
     
     <!-- (eICR) Person Participant to Base FHIR RelatedPerson -->
-    <xsl:template match="cda:participant[cda:templateId[@root = '2.16.840.1.113883.10.20.15.2.4.6']]" mode="bundle-entry">
+    <!-- 20260729 Claude: priority="1" makes this explicit. It already beat
+         cda2fhir-PractitionerRole.xslt's generic cda:participant[cda:participantRole], but only because this file is
+         included after it - Saxon was reporting XTDE0540 and resolving the tie by declaration order. No behaviour
+         change; it just no longer depends on include order. -->
+    <xsl:template match="cda:participant[cda:templateId[@root = '2.16.840.1.113883.10.20.15.2.4.6']]" mode="bundle-entry" priority="1">
         <xsl:call-template name="create-bundle-entry" />
     </xsl:template>
     
     <!-- (eICR) Animal Participant to Base FHIR RelatedPerson -->
-    <xsl:template match="cda:participant[cda:templateId[@root = '2.16.840.1.113883.10.20.15.2.4.5']]" mode="bundle-entry">
+    <!-- 20260729 Claude: priority="1" makes this explicit. It already beat
+         cda2fhir-PractitionerRole.xslt's generic cda:participant[cda:participantRole], but only because this file is
+         included after it - Saxon was reporting XTDE0540 and resolving the tie by declaration order. No behaviour
+         change; it just no longer depends on include order. -->
+    <xsl:template match="cda:participant[cda:templateId[@root = '2.16.840.1.113883.10.20.15.2.4.5']]" mode="bundle-entry" priority="1">
         <xsl:call-template name="create-bundle-entry" />
     </xsl:template>
     
@@ -40,12 +48,20 @@
         <xsl:call-template name="create-bundle-entry" />
     </xsl:template>
 
+    <!-- 20260727 Claude: This template was dead code (mode="relatedPerson-entry" was never invoked anywhere); it is now
+         invoked from cda2fhir-Patient.xslt's recordTarget bundle-entry template so the Patient.link references it
+         supports actually resolve. Fixes applied while resurrecting it:
+         (1) the RelatedPerson previously pulled identifiers/name/gender/birthTime from //cda:patientRole (the DOCUMENT
+             patient), not the related subject - now sourced from the related subject itself;
+         (2) RelatedPerson.patient must reference the patient this person is related to (the record patient), not the
+             related subject's own Patient resource;
+         (3) added a seealso link on the related subject's Patient pointing at its RelatedPerson (FHIR's "same actual
+             person" link semantics);
+         (4) removed two unused variables and fixed the @lsc:uuid typo in the comment below -->
     <xsl:template match="cda:section" mode="relatedPerson-entry">
         <xsl:for-each select="cda:entry/cda:organizer/cda:subject/cda:relatedSubject[@classCode = 'PRS']">
-            <xsl:variable name="related-person-id" select="cda:subject/sdtc:id" />
-            <xsl:variable name="related-person-name" select="cda:subject/cda:name" />
             <entry>
-                <!-- Using cda:subject/@lsc:uuid here to avoid a conflict with RelatedPerson below, which uses the uuid on relatedSubject -->
+                <!-- Using cda:subject/@lcg:uuid here to avoid a conflict with RelatedPerson below, which uses the uuid on relatedSubject -->
                 <fullUrl value="urn:uuid:{cda:subject/@lcg:uuid}" />
                 <resource>
                     <Patient>
@@ -55,12 +71,26 @@
                                 <system>
                                     <xsl:attribute name="value" select="concat('urn:oid:', @root)" />
                                 </system>
-                                <value>
-                                    <xsl:attribute name="value" select="@extension" />
-                                </value>
+                                <!-- 20260824 Claude (B1): only emit <value> when @extension is
+                                     present - an id with @root only would emit value="".
+                                     Identifier with system only is valid. Same pattern in the
+                                     RelatedPerson block below. -->
+                                <xsl:if test="@extension">
+                                    <value>
+                                        <xsl:attribute name="value" select="@extension" />
+                                    </value>
+                                </xsl:if>
                             </identifier>
                         </xsl:for-each>
                         <xsl:apply-templates select="cda:subject/cda:name" />
+                        <xsl:apply-templates select="cda:subject/cda:administrativeGenderCode" />
+                        <xsl:apply-templates select="cda:subject/cda:birthTime" />
+                        <link>
+                            <other>
+                                <reference value="urn:uuid:{@lcg:uuid}" />
+                            </other>
+                            <type value="seealso" />
+                        </link>
                     </Patient>
                 </resource>
             </entry>
@@ -68,17 +98,27 @@
                 <fullUrl value="urn:uuid:{@lcg:uuid}" />
                 <resource>
                     <RelatedPerson>
-                        <xsl:apply-templates select="//cda:patientRole/cda:id" />
-                        <xsl:apply-templates select="//cda:patientRole/cda:patient/cda:id" />
+                        <xsl:for-each select="cda:subject/sdtc:id">
+                            <identifier>
+                                <system>
+                                    <xsl:attribute name="value" select="concat('urn:oid:', @root)" />
+                                </system>
+                                <xsl:if test="@extension">
+                                    <value>
+                                        <xsl:attribute name="value" select="@extension" />
+                                    </value>
+                                </xsl:if>
+                            </identifier>
+                        </xsl:for-each>
                         <patient>
-                            <reference value="urn:uuid:{cda:subject/@lcg:uuid}" />
+                            <reference value="urn:uuid:{/cda:ClinicalDocument/cda:recordTarget[1]/@lcg:uuid}" />
                         </patient>
                         <xsl:apply-templates select="cda:code">
                             <xsl:with-param name="pElementName">relationship</xsl:with-param>
                         </xsl:apply-templates>
-                        <xsl:apply-templates select="//cda:patientRole/cda:patient/cda:name" />
-                        <xsl:apply-templates select="//cda:patientRole/cda:patient/cda:administrativeGenderCode" />
-                        <xsl:apply-templates select="//cda:patientRole/cda:patient/cda:birthTime" />
+                        <xsl:apply-templates select="cda:subject/cda:name" />
+                        <xsl:apply-templates select="cda:subject/cda:administrativeGenderCode" />
+                        <xsl:apply-templates select="cda:subject/cda:birthTime" />
                     </RelatedPerson>
                 </resource>
             </entry>
@@ -103,10 +143,8 @@
                 <xsl:for-each select="cda:subject/cda:administrativeGenderCode[not(@nullFlavor)]">
                     <p>Gender: <xsl:value-of select="@code" /></p>
                 </xsl:for-each>
+                <!-- 20260727 Claude: removed unused $vTest variable -->
                 <xsl:for-each select="cda:subject/cda:birthTime[not(@nullFlavor)]">
-                    <xsl:variable name="vTest">
-                        <xsl:value-of select="lcg:cdaTS2date(@value)" />
-                    </xsl:variable>
                     <p>Birthdate: <xsl:value-of select="lcg:cdaTS2date(@value)" /></p>
                 </xsl:for-each>
 
@@ -168,7 +206,7 @@
 
             <xsl:apply-templates select="cda:associatedEntity/cda:associatedPerson/cda:name" />
             <xsl:apply-templates select="cda:associatedEntity/cda:telecom" />
-            <xsl:apply-templates select="cda:associatedEntity/cda:address" />
+            <xsl:apply-templates select="cda:associatedEntity/cda:addr" />
         </RelatedPerson>
     </xsl:template>
     
@@ -201,7 +239,7 @@
             <xsl:apply-templates select="cda:id" />
             <xsl:apply-templates select="cda:relatedPerson/cda:name" />
             <xsl:apply-templates select="cda:telecom" />
-            <xsl:apply-templates select="cda:address" />
+            <xsl:apply-templates select="cda:addr" />
         </RelatedPerson>
     </xsl:template>
 </xsl:stylesheet>

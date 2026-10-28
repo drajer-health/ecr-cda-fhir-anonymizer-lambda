@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<x:description xmlns:x="http://www.jenitennison.com/xslt/xspec" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" stylesheet="../SaxonPE-cda2fhir.xslt" run-as="external">
+<x:description xmlns:x="http://www.jenitennison.com/xslt/xspec" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" stylesheet="../NativeUUIDGen-cda2fhir.xslt" run-as="external">
 
     <x:scenario label="Scenario for testing template with match 'cda:doseQuantity">
         <x:context>
@@ -27,8 +27,10 @@
             <cda:doseQuantity nullFlavor="NI" />
         </x:context>
         <!-- This doesn't seem right - I'm thinking there probably isn't a case of dose where a  nullFlavor is allowed and that they are all simpleQuantity -->
+        <!-- 20260729 Claude: was =2. The scenario feeds ONE doseQuantity and the transform emits one,
+             correctly coded. =2 appears to have been copied from a sibling scenario; the output was never wrong. -->
         <x:expect label="There should be a doseQuantity with nullFlavor='NoInformation'"
-            test="count(fhir:doseQuantity[fhir:code/@value='NoInformation'][fhir:system/@value='http://terminology.hl7.org/CodeSystem/v3-NullFlavor'])=2" />
+            test="count(fhir:doseQuantity[fhir:code/@value='NoInformation'][fhir:system/@value='http://terminology.hl7.org/CodeSystem/v3-NullFlavor'])=1" />
     </x:scenario>
 
     <x:scenario label="Scenario for testing cda:telecom">
@@ -63,5 +65,69 @@
 
         <x:expect label="Should produce 1 address" test="count(fhir:address) = 1" />
 
+    </x:scenario>
+
+    <!-- 20260804 Claude (CDAFHIR-002): cda:id/@extension used to be passed through lower-case() on its
+         way into Identifier.value, altering 73 of the 697 extensions in the corpus across 15 documents.
+         An identifier is what the issuing system assigned; folding its case yields a different
+         identifier, and nothing downstream can undo it. These three scenarios pin the repaired
+         behaviour AND the two lowercasings that are correct and must survive - "delete every
+         lower-case() in the template" is the obvious over-correction and the third scenario blocks it. -->
+
+    <x:scenario label="CDAFHIR-002: a mixed-case id/@extension reaches Identifier.value unaltered">
+        <x:context>
+            <cda:id root="2.16.840.1.113883.19.5" extension="MRN-00884455" />
+        </x:context>
+        <x:expect label="the identifier value keeps the case the source assigned"
+            test="count(fhir:identifier/fhir:value[@value = 'MRN-00884455']) = 1" />
+        <x:expect label="and the folded form is gone"
+            test="count(fhir:identifier/fhir:value[@value = 'mrn-00884455']) = 0" />
+    </x:scenario>
+
+    <x:scenario label="CDAFHIR-002: a resource-relative reference used as an id survives intact">
+        <!-- The Cerner corpus document carries these. FHIR resource type names are case-SENSITIVE, so
+             the old output (encounter/128252182/_history/4) was wrong, not merely reformatted. -->
+        <x:context>
+            <cda:id root="2.16.840.1.113883.19.5" extension="Encounter/128252182/_history/4" />
+        </x:context>
+        <x:expect label="the resource type keeps its capital E"
+            test="count(fhir:identifier/fhir:value[@value = 'Encounter/128252182/_history/4']) = 1" />
+    </x:scenario>
+
+    <x:scenario label="CDAFHIR-002 negative control: a UUID root IS still lowercased">
+        <!-- RFC 4122 says UUIDs are canonically lowercase, so lower-case(@root) in the urn:uuid branch
+             is correct and deliberate. Asserted here so a future "remove the lowercasing" sweep cannot
+             quietly take this one with it. -->
+        <x:context>
+            <cda:id root="ABCDEF12-1234-1234-1234-123456789ABC" />
+        </x:context>
+        <x:expect label="the urn:uuid value is canonicalised to lowercase"
+            test="count(fhir:identifier/fhir:value[@value = 'urn:uuid:abcdef12-1234-1234-1234-123456789abc']) = 1" />
+    </x:scenario>
+
+    <!-- 20260902 Claude (register B18a, live x2 in eICRTN2Scrubbed): the Observation.dataAbsentReason
+         coding carried the VALUE SET url as its system - the validator rejects that shape outright
+         ("The Coding references a value set, not a code system"). The system is now the
+         terminology.hl7.org CodeSystem the required binding actually draws from. Negative control
+         2026-09-02: the pre-fix (cee7790) stylesheet fails 3 of these 4 assertions - every one that
+         names the system; only the bare UNK->unknown translation pin passes both states. -->
+    <x:scenario label="B18a: Observation.dataAbsentReason coding uses the CodeSystem url, never the ValueSet url">
+        <x:context mode="data-absent-reason" select="cda:observation/cda:value/@nullFlavor">
+            <cda:observation><cda:value nullFlavor="UNK" /></cda:observation>
+        </x:context>
+        <x:expect label="the coding system is the terminology.hl7.org CodeSystem"
+            test="count(fhir:dataAbsentReason/fhir:coding/fhir:system[@value = 'http://terminology.hl7.org/CodeSystem/data-absent-reason']) = 1" />
+        <x:expect label="the ValueSet url never appears as a system"
+            test="count(//fhir:system[@value = 'http://hl7.org/fhir/ValueSet/data-absent-reason']) = 0" />
+        <x:expect label="UNK still translates to unknown"
+            test="count(fhir:dataAbsentReason/fhir:coding/fhir:code[@value = 'unknown']) = 1" />
+    </x:scenario>
+
+    <x:scenario label="B18a companion: the nullFlavor translation ladder is untouched (MSK -> masked)">
+        <x:context mode="data-absent-reason" select="cda:observation/cda:value/@nullFlavor">
+            <cda:observation><cda:value nullFlavor="MSK" /></cda:observation>
+        </x:context>
+        <x:expect label="MSK still translates to masked, under the corrected system"
+            test="count(fhir:dataAbsentReason/fhir:coding[fhir:system/@value = 'http://terminology.hl7.org/CodeSystem/data-absent-reason'][fhir:code/@value = 'masked']) = 1" />
     </x:scenario>
 </x:description>

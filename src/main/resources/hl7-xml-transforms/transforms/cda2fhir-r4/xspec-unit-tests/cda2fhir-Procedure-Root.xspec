@@ -1,41 +1,344 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<x:description xmlns:x="http://www.jenitennison.com/xslt/xspec" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" stylesheet="../SaxonPE-cda2fhir.xslt" run-as="external"> 
+<x:description xmlns:x="http://www.jenitennison.com/xslt/xspec" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" stylesheet="../NativeUUIDGen-cda2fhir.xslt" run-as="external"> 
+
+    <!-- 20260730 Claude: both original scenarios pointed at the RR fixture, but no RR document contains a
+         cda:procedure - git history (1191cc6, 2024-07-18) shows they were born that way, and the RR fixture has
+         never held one. The expected counts instead exactly match the two Procedure Activity Procedure
+         (22.4.14, EVN) entries in the eICR fixture, so the href was a copy-paste error, not drift. The context
+         is now the eICR fixture, narrowed with @select to the template match named in the scenario label (the
+         eICR fixture also carries three other cda:procedure elements - 22.4.41/RQO and 2 x 22.4.415 - that this
+         template does not own, so a whole-document count would not isolate it).
+         One scenario per procedure rather than one two-node select: $gvCurrentIg is computed from '/', and
+         fn:transform only sets a global context item when the selection is a single node (source-node); a
+         multi-node selection runs with the global context item absent and the transform dies with XPDY0002. -->
 
     <!-- Procedure - create bundle entry-->
-    <x:scenario label="Scenario for testing template with match 'cda:procedure[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.14'][@moodCode = 'EVN']'and mode 'bundle-entry'">
-        <x:context href="../../../samples/cda/xspec-test-files/XSPEC_RR-CDA-001_R1_1.xml" />
-        <x:expect label="There should be Two Procedure resources" test="count(//fhir:entry/fhir:resource/fhir:Procedure)=2" />
+    <x:scenario label="Scenario for testing template with match 'cda:procedure[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.14'][@moodCode = 'EVN']'and mode 'bundle-entry' - first procedure (73761001)">
+        <x:context href="../../../samples/cda/xspec-test-files/XSPEC_eICR-CDA-001_R3_1.xml" mode="bundle-entry"
+            select="(//cda:procedure[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.14'][@moodCode = 'EVN'])[1]" />
+        <x:expect label="There should be one Procedure resource inside a bundle entry" test="count(//fhir:entry/fhir:resource/fhir:Procedure)=1" />
+        <x:expect label="The entry should have a fullUrl" test="count(//fhir:entry/fhir:fullUrl)=1" />
+    </x:scenario>
+
+    <x:scenario label="Scenario for testing template with match 'cda:procedure[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.14'][@moodCode = 'EVN']'and mode 'bundle-entry' - second procedure (233573008)">
+        <x:context href="../../../samples/cda/xspec-test-files/XSPEC_eICR-CDA-001_R3_1.xml" mode="bundle-entry"
+            select="(//cda:procedure[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.14'][@moodCode = 'EVN'])[2]" />
+        <x:expect label="There should be one Procedure resource inside a bundle entry" test="count(//fhir:entry/fhir:resource/fhir:Procedure)=1" />
+        <x:expect label="The entry should have a fullUrl" test="count(//fhir:entry/fhir:fullUrl)=1" />
     </x:scenario>
 
     <!-- Procedure - create resource-->
-    <x:scenario label="Scenario for testing template with match 'cda:procedure[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.14'][@moodCode = 'EVN']'">
-        <x:context href="../../../samples/cda/xspec-test-files/XSPEC_RR-CDA-001_R1_1.xml" />
-        <!--  Validate an Procedure profile exists-->
-        <!-- <x:expect label="There should be an Procedure.meta.profile=http://hl7.org/fhir/us/core/StructureDefinition/us-core-procedure" 
-     test="count(fhir:procedure/fhir:meta/fhir:profile[@value='http://hl7.org/fhir/us/core/StructureDefinition/us-core-procedure'])>0" />-->
+    <x:scenario label="Scenario for testing template with match 'cda:procedure[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.14'][@moodCode = 'EVN']' - first procedure (73761001)">
+        <x:context href="../../../samples/cda/xspec-test-files/XSPEC_eICR-CDA-001_R3_1.xml"
+            select="(//cda:procedure[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.14'][@moodCode = 'EVN'])[1]" />
+        <!--  Validate the Procedure profile -->
+        <!-- 20260730 Claude: profile assertion re-enabled - the commented-out original expected us-core-procedure,
+             but for an eICR source the transform emits the eicr-procedure profile. -->
+        <x:expect label="There should be a Procedure.meta.profile=http://hl7.org/fhir/us/ecr/StructureDefinition/eicr-procedure"
+            test="count(//fhir:Procedure/fhir:meta/fhir:profile[@value='http://hl7.org/fhir/us/ecr/StructureDefinition/eicr-procedure'])=1" />
 
         <!--Validate the Identifier-->
-        <x:expect label="There should be two Procedure.system" test="count(//fhir:Procedure/fhir:identifier/fhir:system)=2" />
-        <x:expect label="There should be an Procedure.value.value" test="count(//fhir:Procedure/fhir:identifier/fhir:value)=2" />
+        <x:expect label="There should be a Procedure.identifier.system" test="count(//fhir:Procedure/fhir:identifier/fhir:system)=1" />
+        <x:expect label="There should be a Procedure.identifier.value" test="count(//fhir:Procedure/fhir:identifier/fhir:value)=1" />
         <!-- Validate the Status Code -->
-        <x:expect label="There should be two Procedure.status.value=completed" test="count(//fhir:Procedure/fhir:status)=2" />
+        <x:expect label="There should be a Procedure.status.value=completed" test="count(//fhir:Procedure/fhir:status[@value='completed'])=1" />
 
         <!-- Validate the Procedure Code-->
-        <x:expect label="There should be two Procedure.code.coding.system" test="count(//fhir:Procedure/fhir:code/fhir:coding/fhir:system)=2" />
-        <x:expect label="There should be an Procedure.code.coding.code" test="count(//fhir:Procedure/fhir:code/fhir:coding/fhir:code)=2" />
-        <x:expect label="There should be an Procedure.code.coding.display" test="count(//fhir:Procedure/fhir:code/fhir:coding/fhir:display)=2" />
-
+        <x:expect label="There should be a Procedure.code.coding.system" test="count(//fhir:Procedure/fhir:code/fhir:coding/fhir:system)=1" />
+        <x:expect label="There should be a Procedure.code.coding.code=73761001" test="count(//fhir:Procedure/fhir:code/fhir:coding/fhir:code[@value='73761001'])=1" />
+        <x:expect label="There should be a Procedure.code.coding.display" test="count(//fhir:Procedure/fhir:code/fhir:coding/fhir:display)=1" />
 
         <!-- Validate the Patient Reference -->
-        <x:expect label="There should be an Procedure.subject.reference" test="count(//fhir:Procedure/fhir:subject/fhir:reference)=2" />
+        <x:expect label="There should be a Procedure.subject.reference" test="count(//fhir:Procedure/fhir:subject/fhir:reference)=1" />
 
         <!-- Validate the Procedure Start and End Date/Time-->
-        <x:expect label="There should be a Procedure.performedPeriod.start" test="count(//fhir:Procedure/fhir:performedPeriod/fhir:start)=2" />
-        <x:expect label="There should be a Procedure.performedPeriod.end" test="count(//fhir:Procedure/fhir:performedPeriod/fhir:end)=2" />
-
+        <x:expect label="There should be a Procedure.performedPeriod.start" test="count(//fhir:Procedure/fhir:performedPeriod/fhir:start)=1" />
+        <x:expect label="There should be a Procedure.performedPeriod.end" test="count(//fhir:Procedure/fhir:performedPeriod/fhir:end)=1" />
 
         <!-- Validate the Asserter  Reference -->
-        <x:expect label="There should be an Procedure.asserter.reference" test="count(//fhir:Procedure/fhir:asserter/fhir:reference)=2" />
+        <!-- 20260730 Claude: 2 -> 0. Neither 22.4.14 procedure in the source carries a cda:author, and
+             Procedure.asserter is 0..1 - same class of fix as the ServiceRequest requester triage of 2026-07-29:
+             the source document, not the transform, is why the element is absent. -->
+        <x:expect label="There should be no Procedure.asserter.reference (no author in source)" test="count(//fhir:Procedure/fhir:asserter/fhir:reference)=0" />
     </x:scenario>
+
+    <x:scenario label="Scenario for testing template with match 'cda:procedure[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.14'][@moodCode = 'EVN']' - second procedure (233573008)">
+        <x:context href="../../../samples/cda/xspec-test-files/XSPEC_eICR-CDA-001_R3_1.xml"
+            select="(//cda:procedure[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.14'][@moodCode = 'EVN'])[2]" />
+        <x:expect label="There should be a Procedure.meta.profile=http://hl7.org/fhir/us/ecr/StructureDefinition/eicr-procedure"
+            test="count(//fhir:Procedure/fhir:meta/fhir:profile[@value='http://hl7.org/fhir/us/ecr/StructureDefinition/eicr-procedure'])=1" />
+        <x:expect label="There should be a Procedure.identifier.system" test="count(//fhir:Procedure/fhir:identifier/fhir:system)=1" />
+        <x:expect label="There should be a Procedure.identifier.value" test="count(//fhir:Procedure/fhir:identifier/fhir:value)=1" />
+        <x:expect label="There should be a Procedure.status.value=completed" test="count(//fhir:Procedure/fhir:status[@value='completed'])=1" />
+        <x:expect label="There should be a Procedure.code.coding.system" test="count(//fhir:Procedure/fhir:code/fhir:coding/fhir:system)=1" />
+        <x:expect label="There should be a Procedure.code.coding.code=233573008" test="count(//fhir:Procedure/fhir:code/fhir:coding/fhir:code[@value='233573008'])=1" />
+        <x:expect label="There should be a Procedure.code.coding.display" test="count(//fhir:Procedure/fhir:code/fhir:coding/fhir:display)=1" />
+        <x:expect label="There should be a Procedure.subject.reference" test="count(//fhir:Procedure/fhir:subject/fhir:reference)=1" />
+        <x:expect label="There should be a Procedure.performedPeriod.start" test="count(//fhir:Procedure/fhir:performedPeriod/fhir:start)=1" />
+        <x:expect label="There should be a Procedure.performedPeriod.end" test="count(//fhir:Procedure/fhir:performedPeriod/fhir:end)=1" />
+        <x:expect label="There should be no Procedure.asserter.reference (no author in source)" test="count(//fhir:Procedure/fhir:asserter/fhir:reference)=0" />
+    </x:scenario>
+
+
+    <!-- 20260729 Claude: regression tests for defects fixed 2026-07 - each scenario asserts the
+         corrected behavior and fails against the pre-fix code -->
+
+    <x:scenario label="Procedure statusCode with an unmapped code falls back to status completed, never an empty value">
+        <x:context>
+            <procedure classCode="PROC" moodCode="EVN" xmlns="urn:hl7-org:v3">
+            <templateId root="2.16.840.1.113883.10.20.22.4.14"/><id root="80000000-0000-0000-0000-000000000001"/>
+            <code code="80146002" codeSystem="2.16.840.1.113883.6.96"/><statusCode code="normal"/>
+            <effectiveTime value="20250101"/></procedure>
+        </x:context>
+        <x:expect label="status fallback should be the string 'completed' (select=&quot;completed&quot; was an unquoted XPath producing value=&quot;&quot;)"
+            test="count(fhir:Procedure/fhir:status[@value = 'completed']) = 1" />
+        <x:expect label="status must never be empty"
+            test="count(fhir:Procedure/fhir:status[@value = '']) = 0" />
+    </x:scenario>
+
+  <!-- 20260824 Claude (per SG): Procedure.recorder allows only Practitioner|PractitionerRole|Patient|
+       RelatedPerson. The TN eICR carried four procedures whose author is HOLLOW (ids only, no person) and
+       whose ids resolve, via the update-referenced-actor-uuids phase, to a person-less org author - so
+       recorder referenced an Organization and the validator failed with "Invalid Resource target type.
+       Found Organization". Per SG's decision (2026-08-24, replacing an interim omission design): the
+       organization authorship is PRESERVED - the recorder references a companion ORG-ONLY
+       PractitionerRole (identifiers + organization, no practitioner, no meta.profile: base-valid, and
+       us-core-practitionerrole 3.1.1 would require practitioner 1..1). A DEVICE author cannot be wrapped
+       (PractitionerRole.practitioner cannot reference Device) and recorder (0..1) is omitted. Person-
+       bearing and UNMATCHED hollow authors emit as before (PractitionerRole / identifier-only
+       Practitioner). Same treatment on Condition.asserter (identical target list).
+       Note: the scenario uses a WHOLE-document context - the uuid-routing phase only runs from the
+       document root, so a fragment context cannot exercise this behavior.
+       Negative control 2026-08-24: the pre-fix stylesheets fail G2/G3/G6/G7/G9 (five recorders, two
+       pointing at Organizations, one at a Device, no companion PractitionerRoles); the interim
+       omission design fails G2/G6/G7 (only two recorders, no companions). -->
+  <x:scenario label="G. recorder guard: omitted for org-resolving and direct-org authors, kept for persons and unmatched (whole document)">
+    <x:context select="/" xmlns="urn:hl7-org:v3">
+      <ClinicalDocument xmlns="urn:hl7-org:v3">
+        <templateId root="2.16.840.1.113883.10.20.15.2" extension="2022-05-01" />
+        <recordTarget>
+          <patientRole>
+            <id root="2.16.840.1.113883.19.5" extension="12345" />
+            <patient><name use="L"><given>Ref</given><family>Case</family></name></patient>
+          </patientRole>
+        </recordTarget>
+        <author>
+          <time value="20230829081427-0500" />
+          <assignedAuthor>
+            <id root="2.16.840.1.113883.19.5555.1" extension="ORG-AUTH-1" />
+            <representedOrganization>
+              <name>Person-less Org</name>
+            </representedOrganization>
+          </assignedAuthor>
+        </author>
+        <component><structuredBody><component><section>
+          <templateId root="2.16.840.1.113883.10.20.22.2.7.1" />
+          <entry>
+            <procedure classCode="PROC" moodCode="EVN">
+              <templateId root="2.16.840.1.113883.10.20.22.4.14" />
+              <id root="00000000-0000-0000-0000-0000000000a1" />
+              <code code="86880" codeSystem="2.16.840.1.113883.6.12" displayName="COOMBS DIRECT" />
+              <statusCode code="completed" />
+              <effectiveTime value="20231013" />
+              <author>
+                <time value="20231013075452-0500" />
+                <assignedAuthor>
+                  <id root="2.16.840.1.113883.19.5555.1" extension="ORG-AUTH-1" />
+                </assignedAuthor>
+              </author>
+            </procedure>
+          </entry>
+          <entry>
+            <procedure classCode="PROC" moodCode="EVN">
+              <templateId root="2.16.840.1.113883.10.20.22.4.14" />
+              <id root="00000000-0000-0000-0000-0000000000a2" />
+              <code code="86886" codeSystem="2.16.840.1.113883.6.12" displayName="COOMBS INDIRECT" />
+              <statusCode code="completed" />
+              <effectiveTime value="20230725" />
+              <author>
+                <time value="20230725125148-0500" />
+                <assignedAuthor>
+                  <id root="2.16.840.1.113883.19.5555.2" extension="DR-1" />
+                  <assignedPerson><name><given>Paula</given><family>Person</family></name></assignedPerson>
+                </assignedAuthor>
+              </author>
+            </procedure>
+          </entry>
+          <entry>
+            <procedure classCode="PROC" moodCode="EVN">
+              <templateId root="2.16.840.1.113883.10.20.22.4.14" />
+              <id root="00000000-0000-0000-0000-0000000000a3" />
+              <code code="87481" codeSystem="2.16.840.1.113883.6.12" displayName="CANDIDA PCR" />
+              <statusCode code="completed" />
+              <effectiveTime value="20231021" />
+              <author>
+                <time value="20231021" />
+                <assignedAuthor>
+                  <id root="2.16.840.1.113883.19.5555.3" extension="ORG-2" />
+                  <representedOrganization><name>Direct Org</name></representedOrganization>
+                </assignedAuthor>
+              </author>
+            </procedure>
+          </entry>
+          <entry>
+            <procedure classCode="PROC" moodCode="EVN">
+              <templateId root="2.16.840.1.113883.10.20.22.4.14" />
+              <id root="00000000-0000-0000-0000-0000000000a4" />
+              <code code="86900" codeSystem="2.16.840.1.113883.6.12" displayName="ABO TYPE" />
+              <statusCode code="completed" />
+              <effectiveTime value="20231022" />
+              <author>
+                <time value="20231022" />
+                <assignedAuthor>
+                  <id root="2.16.840.1.113883.4.6" extension="9999999999" />
+                </assignedAuthor>
+              </author>
+            </procedure>
+          </entry>
+          <entry>
+            <procedure classCode="PROC" moodCode="EVN">
+              <templateId root="2.16.840.1.113883.10.20.22.4.14" />
+              <id root="00000000-0000-0000-0000-0000000000a5" />
+              <code code="86901" codeSystem="2.16.840.1.113883.6.12" displayName="RH TYPE" />
+              <statusCode code="completed" />
+              <effectiveTime value="20231023" />
+              <author>
+                <time value="20231023" />
+                <assignedAuthor>
+                  <id root="2.16.840.1.113883.19.5555.4" extension="DEV-1" />
+                  <assignedAuthoringDevice>
+                    <manufacturerModelName>AutoLab</manufacturerModelName>
+                    <softwareName>LabBot</softwareName>
+                  </assignedAuthoringDevice>
+                </assignedAuthor>
+              </author>
+            </procedure>
+          </entry>
+        </section></component></structuredBody></component>
+      </ClinicalDocument>
+    </x:context>
+    <x:expect label="G2. four recorders across the five procedures - only the DEVICE author's is omitted"
+      test="count(//fhir:Procedure/fhir:recorder) = 4" />
+    <x:expect label="G3. no recorder points at any Organization entry"
+      test="count(//fhir:Procedure/fhir:recorder/fhir:reference[@value = //fhir:entry[fhir:resource/fhir:Organization]/fhir:fullUrl/@value]) = 0" />
+    <x:expect label="G4. the person-bearing author's recorder points at a PractitionerRole entry"
+      test="count(//fhir:Procedure[fhir:code/fhir:coding/fhir:code/@value = '86886']/fhir:recorder/fhir:reference[@value = //fhir:entry[fhir:resource/fhir:PractitionerRole]/fhir:fullUrl/@value]) = 1" />
+    <x:expect label="G5. the unmatched hollow author's recorder points at the identifier-only Practitioner (item-41 shape preserved)"
+      test="count(//fhir:Procedure[fhir:code/fhir:coding/fhir:code/@value = '86900']/fhir:recorder/fhir:reference[@value = //fhir:entry[fhir:resource/fhir:Practitioner[fhir:identifier/fhir:value/@value = '9999999999']]/fhir:fullUrl/@value]) = 1" />
+    <x:expect label="G6. the ORG-ROUTED hollow author's recorder points at a companion PractitionerRole that has an organization, carries the author's identifier, and has NO practitioner"
+      test="count(//fhir:Procedure[fhir:code/fhir:coding/fhir:code/@value = '86880']/fhir:recorder/fhir:reference[@value = //fhir:entry[fhir:resource/fhir:PractitionerRole[not(fhir:practitioner)][fhir:organization][fhir:identifier/fhir:value/@value = 'ORG-AUTH-1']]/fhir:fullUrl/@value]) = 1" />
+    <x:expect label="G7. the DIRECT person-less-org author's recorder points at a companion PractitionerRole whose organization resolves to an Organization entry"
+      test="count(//fhir:Procedure[fhir:code/fhir:coding/fhir:code/@value = '87481']/fhir:recorder/fhir:reference[@value = //fhir:entry[fhir:resource/fhir:PractitionerRole[not(fhir:practitioner)][fhir:organization/fhir:reference/@value = //fhir:entry[fhir:resource/fhir:Organization]/fhir:fullUrl/@value]]/fhir:fullUrl/@value]) = 1" />
+    <x:expect label="G8. every companion PractitionerRole is referenced by a recorder - no orphans"
+      test="count(//fhir:entry[fhir:resource/fhir:PractitionerRole[not(fhir:practitioner)]][not(fhir:fullUrl/@value = //fhir:Procedure/fhir:recorder/fhir:reference/@value)]) = 0" />
+    <x:expect label="G9. the DEVICE author's procedure has no recorder at all"
+      test="count(//fhir:Procedure[fhir:code/fhir:coding/fhir:code/@value = '86901']/fhir:recorder) = 0" />
+  </x:scenario>
+
+  <!-- 20260825 Claude (B15a): Procedure.asserter comes from informant[1], but the
+       rename-reference-participant template matched only author|performer - an informant fell to
+       XSLT built-in rules, which copied the informant's TEXT (person/org names) into the Procedure
+       and never produced an asserter. Target list (eicr-procedure 2.1.2 = us-core-procedure 3.1.1 =
+       R4 base): Patient|RelatedPerson|Practitioner|PractitionerRole. Now an informant behaves like a
+       performer at a person-only site: person - PractitionerRole reference; person-less org -
+       companion org-only PractitionerRole (paired creation in the bundle-entry template); device
+       would be omitted (asserter 0..1). Whole-document context: bundle pairing is asserted. -->
+  <x:scenario label="H. asserter from informant: person references PractitionerRole, org references companion org-only PractitionerRole, no text leaks">
+    <x:context select="/" xmlns="urn:hl7-org:v3">
+      <ClinicalDocument xmlns="urn:hl7-org:v3">
+        <templateId root="2.16.840.1.113883.10.20.15.2" extension="2022-05-01" />
+        <recordTarget>
+          <patientRole>
+            <id root="2.16.840.1.113883.19.5" extension="12345" />
+            <patient><name use="L"><given>Ref</given><family>Case</family></name></patient>
+          </patientRole>
+        </recordTarget>
+        <component><structuredBody><component><section>
+          <templateId root="2.16.840.1.113883.10.20.22.2.7.1" />
+          <entry>
+            <procedure classCode="PROC" moodCode="EVN">
+              <templateId root="2.16.840.1.113883.10.20.22.4.14" />
+              <id root="00000000-0000-0000-0000-0000000000b1" />
+              <code code="86880" codeSystem="2.16.840.1.113883.6.12" displayName="COOMBS DIRECT" />
+              <statusCode code="completed" />
+              <effectiveTime value="20231013" />
+              <informant>
+                <assignedEntity>
+                  <id root="2.16.840.1.113883.19.5555.7" extension="INF-DR-1" />
+                  <assignedPerson><name><given>Ingrid</given><family>Informer</family></name></assignedPerson>
+                </assignedEntity>
+              </informant>
+            </procedure>
+          </entry>
+          <entry>
+            <procedure classCode="PROC" moodCode="EVN">
+              <templateId root="2.16.840.1.113883.10.20.22.4.14" />
+              <id root="00000000-0000-0000-0000-0000000000b2" />
+              <code code="86886" codeSystem="2.16.840.1.113883.6.12" displayName="COOMBS INDIRECT" />
+              <statusCode code="completed" />
+              <effectiveTime value="20230725" />
+              <informant>
+                <assignedEntity>
+                  <id root="2.16.840.1.113883.19.5555.8" extension="INF-ORG-1" />
+                  <representedOrganization><name>Informant Org Only</name></representedOrganization>
+                </assignedEntity>
+              </informant>
+            </procedure>
+          </entry>
+        </section></component></structuredBody></component>
+      </ClinicalDocument>
+    </x:context>
+    <x:expect label="H1. both procedures now carry exactly one asserter, each holding a reference element"
+      test="count(//fhir:Procedure/fhir:asserter[fhir:reference/@value]) = 2" />
+    <x:expect label="H2. the PERSON informant's asserter points at a person-bearing PractitionerRole entry"
+      test="count(//fhir:Procedure[fhir:code/fhir:coding/fhir:code/@value = '86880']/fhir:asserter/fhir:reference[@value = //fhir:entry[fhir:resource/fhir:PractitionerRole[fhir:practitioner]]/fhir:fullUrl/@value]) = 1" />
+    <x:expect label="H3. the ORG informant's asserter points at a companion PractitionerRole with organization, the informant's identifier, and NO practitioner"
+      test="count(//fhir:Procedure[fhir:code/fhir:coding/fhir:code/@value = '86886']/fhir:asserter/fhir:reference[@value = //fhir:entry[fhir:resource/fhir:PractitionerRole[not(fhir:practitioner)][fhir:organization][fhir:identifier/fhir:value/@value = 'INF-ORG-1']]/fhir:fullUrl/@value]) = 1" />
+    <x:expect label="H4. no asserter points at any Organization entry"
+      test="count(//fhir:Procedure/fhir:asserter/fhir:reference[@value = //fhir:entry[fhir:resource/fhir:Organization]/fhir:fullUrl/@value]) = 0" />
+    <x:expect label="H5. no informant text leaks into any Procedure (the pre-fix built-in-rule fallthrough copied names as raw text)"
+      test="count(//fhir:Procedure[contains(string(.), 'Ingrid') or contains(string(.), 'Informant Org Only')]) = 0" />
+  </x:scenario>
+
+  <!-- 20260825 Claude (B15): PIN - the new 'patient' kind in lcg:participation-target-kind exists so
+       Encounter.participant can suppress patient-routed participations; person-only sites like
+       Procedure.recorder must be UNTOUCHED by it, because Patient is a legal recorder/asserter
+       target. A hollow author whose ids resolve to the recordTarget must still emit a recorder
+       referencing the Patient. Whole-document context - only the document root runs uuid routing. -->
+  <x:scenario label="I. recorder from a hollow author routed to the recordTarget still emits a Patient reference (patient is a legal person-only target)">
+    <x:context select="/" xmlns="urn:hl7-org:v3">
+      <ClinicalDocument xmlns="urn:hl7-org:v3">
+        <templateId root="2.16.840.1.113883.10.20.15.2" extension="2022-05-01" />
+        <recordTarget>
+          <patientRole>
+            <id root="2.16.840.1.113883.19.5" extension="PAT-1" />
+            <patient><name use="L"><given>Pat</given><family>Recorder</family></name></patient>
+          </patientRole>
+        </recordTarget>
+        <component><structuredBody><component><section>
+          <templateId root="2.16.840.1.113883.10.20.22.2.7.1" />
+          <entry>
+            <procedure classCode="PROC" moodCode="EVN">
+              <templateId root="2.16.840.1.113883.10.20.22.4.14" />
+              <id root="00000000-0000-0000-0000-0000000000c1" />
+              <code code="86900" codeSystem="2.16.840.1.113883.6.12" displayName="ABO TYPE" />
+              <statusCode code="completed" />
+              <effectiveTime value="20231022" />
+              <author>
+                <time value="20231022" />
+                <assignedAuthor>
+                  <id root="2.16.840.1.113883.19.5" extension="PAT-1" />
+                </assignedAuthor>
+              </author>
+            </procedure>
+          </entry>
+        </section></component></structuredBody></component>
+      </ClinicalDocument>
+    </x:context>
+    <x:expect label="I1. the recorder is still emitted"
+      test="count(//fhir:Procedure/fhir:recorder) = 1" />
+    <x:expect label="I2. and it references the Patient entry"
+      test="count(//fhir:Procedure/fhir:recorder/fhir:reference[@value = //fhir:entry[fhir:resource/fhir:Patient]/fhir:fullUrl/@value]) = 1" />
+  </x:scenario>
 
 </x:description>

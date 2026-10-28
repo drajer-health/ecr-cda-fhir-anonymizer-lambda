@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<x:description xmlns:x="http://www.jenitennison.com/xslt/xspec" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" stylesheet="../SaxonPE-cda2fhir.xslt" run-as="external">
+<x:description xmlns:x="http://www.jenitennison.com/xslt/xspec" xmlns:cda="urn:hl7-org:v3" xmlns:fhir="http://hl7.org/fhir" xmlns:lcg="http://www.lantanagroup.com" stylesheet="../NativeUUIDGen-cda2fhir.xslt" run-as="external">
 
     <!-- All Conditions - Create bundle entry -->
     <x:scenario label="A. Scenario for testing template with match 'cda:observation[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.4'] and mode 'bundle-entry'">
@@ -23,4 +23,60 @@
         <x:expect label="B7. There should be one Condition.clinicalStatus.coding.code[@value] = resolved" test="count(//fhir:Condition/fhir:clinicalStatus/fhir:coding/fhir:code[@value='resolved'])=1" />
         <x:expect label="B8. There should be five Condition.clinicalStatus.coding.code[@value] = active" test="count(//fhir:Condition/fhir:clinicalStatus/fhir:coding/fhir:code[@value='active'])=5" />
     </x:scenario>
+
+    <!-- 20260729 Claude: regression tests for defects fixed 2026-07 - each scenario asserts the
+         corrected behavior and fails against the pre-fix code -->
+
+    <x:scenario label="Negated trigger-code problem observation suppresses clinicalStatus (FHIR invariant con-5)">
+        <x:context>
+            <observation classCode="OBS" moodCode="EVN" negationInd="true" xmlns="urn:hl7-org:v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <templateId root="2.16.840.1.113883.10.20.22.4.4"/>
+            <templateId root="2.16.840.1.113883.10.20.15.2.3.3"/>
+            <id root="40000000-0000-0000-0000-000000000001"/>
+            <code code="64572001" codeSystem="2.16.840.1.113883.6.96"/><statusCode code="completed"/>
+            <effectiveTime><low value="20240101"/></effectiveTime>
+            <value xsi:type="CD" code="840539006" codeSystem="2.16.840.1.113883.6.96"/></observation>
+        </x:context>
+        <x:expect label="verificationStatus should be entered-in-error"
+            test="count(fhir:Condition/fhir:verificationStatus/fhir:coding/fhir:code[@value = 'entered-in-error']) = 1" />
+        <x:expect label="con-5: clinicalStatus must NOT be present when verificationStatus is entered-in-error"
+            test="count(fhir:Condition/fhir:clinicalStatus) = 0" />
+    </x:scenario>
+
+    <!-- 20260803 Claude (item 41): the concern-act wrapper unwrap in reference mode emitted references
+         for EVERY entryRelationship child, including suppressed templates that never produce a resource.
+         A Comment Activity (4.64) nested in a Problem Concern Act became a dangling
+         Composition.section.entry (3 of them in the Epic corpus document). Same rule as section entries
+         (item 21) and hasMember (item 40): consult templates-to-suppress.xml before emitting. -->
+    <x:scenario label="Concern act unwrap in reference mode skips suppressed children (Comment Activity 4.64)">
+        <x:context mode="reference" select="//cda:act[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.3']">
+            <x:param name="wrapping-elements" select="'entry'" />
+            <cda:section xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                <cda:entry>
+                    <cda:act classCode="ACT" moodCode="EVN" lcg:uuid="00000000-0000-0000-0000-0000000000d1">
+                        <cda:templateId root="2.16.840.1.113883.10.20.22.4.3" />
+                        <cda:entryRelationship typeCode="SUBJ">
+                            <cda:observation classCode="OBS" moodCode="EVN" lcg:uuid="00000000-0000-0000-0000-0000000000d2">
+                                <cda:templateId root="2.16.840.1.113883.10.20.22.4.4" />
+                                <cda:code code="64572001" codeSystem="2.16.840.1.113883.6.96" />
+                                <cda:value xsi:type="CD" code="840539006" codeSystem="2.16.840.1.113883.6.96" />
+                            </cda:observation>
+                        </cda:entryRelationship>
+                        <cda:entryRelationship typeCode="SUBJ" inversionInd="true">
+                            <cda:act classCode="ACT" moodCode="EVN" lcg:uuid="00000000-0000-0000-0000-0000000000d3">
+                                <cda:templateId root="2.16.840.1.113883.10.20.22.4.64" />
+                                <cda:code code="48767-8" codeSystem="2.16.840.1.113883.6.1" />
+                                <cda:text>A comment</cda:text>
+                            </cda:act>
+                        </cda:entryRelationship>
+                    </cda:act>
+                </cda:entry>
+            </cda:section>
+        </x:context>
+        <x:expect label="exactly one entry reference is emitted (the Problem Observation)"
+            test="count(fhir:entry/fhir:reference[@value = 'urn:uuid:00000000-0000-0000-0000-0000000000d2']) = 1" />
+        <x:expect label="no reference is emitted to the suppressed Comment Activity (it produces no resource, so the reference would dangle)"
+            test="count(//fhir:reference[@value = 'urn:uuid:00000000-0000-0000-0000-0000000000d3']) = 0" />
+    </x:scenario>
+
 </x:description>

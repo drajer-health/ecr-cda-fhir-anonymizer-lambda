@@ -12,6 +12,13 @@
         <xsl:apply-templates select="cda:author" mode="bundle-entry" />
         <xsl:apply-templates select="cda:informant" mode="bundle-entry" />
         <xsl:apply-templates select="cda:performer" mode="bundle-entry" />
+        <!-- 20260824 Claude (per SG): companion org-only PractitionerRole for the recorder when
+             author[1] is, or resolves to, an Organization - pairs with the pPersonOnlyTargets
+             reference in the convert template (see cda2fhir-PractitionerRole.xslt) -->
+        <xsl:apply-templates select="cda:author[1]" mode="org-practitionerrole-entry" />
+        <!-- 20260825 Claude (B15a): same pairing for the asserter - informant[1] is classified with
+             pPersonOnlyTargets in the convert templates, so its org companion must be created here -->
+        <xsl:apply-templates select="cda:informant[1]" mode="org-practitionerrole-entry" />
 
         <xsl:for-each select="cda:author[position() > 1] | cda:informant[position() > 1]">
             <xsl:apply-templates select="." mode="provenance" />
@@ -60,18 +67,15 @@
             </xsl:apply-templates>
             <xsl:call-template name="subject-reference" />
             <!-- encounter -->
-            <xsl:if test="cda:entryRelationship/cda:encounter/cda:id">
-                <xsl:variable name="vEncounterExtension">
-                    <xsl:value-of select="//cda:encompassingEncounter/cda:id/@extension" />
-                </xsl:variable>
-                <xsl:variable name="vEncounterRoot">
-                    <xsl:value-of select="//cda:encompassingEncounter/cda:id/@root" />
-                </xsl:variable>
-                <xsl:if test="cda:entryRelationship/cda:encounter/cda:id[@root = $vEncounterRoot][@extension = $vEncounterExtension]">
-                    <encounter>
-                        <reference value="urn:uuid:{//cda:encompassingEncounter/@lcg:uuid}" />
-                    </encounter>
-                </xsl:if>
+            <!-- 20260729 Claude: Fix - the match required @extension equality even when the encompassingEncounter id has
+                 no extension (an absent attribute never equals an empty string), so root-only ids could never match; now
+                 roots must match and extensions must either match or both be absent -->
+            <xsl:if test="
+                    cda:entryRelationship/cda:encounter/cda:id[some $e in /cda:ClinicalDocument/cda:componentOf/cda:encompassingEncounter/cda:id
+                        satisfies (@root = $e/@root and ((@extension = $e/@extension) or (not(@extension) and not($e/@extension))))]">
+                <encounter>
+                    <reference value="urn:uuid:{/cda:ClinicalDocument/cda:componentOf/cda:encompassingEncounter[1]/@lcg:uuid}" />
+                </encounter>
             </xsl:if>
             <xsl:choose>
                 <xsl:when test="cda:effectiveTime/@nullFlavor and ancestor::cda:act[cda:templateId[@root = '2.16.840.1.113883.10.20.22.4.131']]">
@@ -89,11 +93,27 @@
             <!-- recorder (max 1)-->
             <xsl:apply-templates select="cda:author[1]" mode="rename-reference-participant">
                 <xsl:with-param name="pElementName">recorder</xsl:with-param>
+                <!-- 20260824 Claude (per SG): Procedure.recorder only allows Practitioner|PractitionerRole|
+                     Patient|RelatedPerson. An author that is (or resolves to) an Organization is preserved
+                     by referencing a companion org-only PractitionerRole (created by the bundle-entry
+                     template above, mode org-practitionerrole-entry); a Device author is omitted
+                     (recorder is 0..1). Live in the TN eICR: hollow authors resolving to a person-less
+                     org author. See rename-reference-participant in c-to-fhir-utility.xslt. -->
+                <xsl:with-param name="pPersonOnlyTargets" select="true()" />
             </xsl:apply-templates>
 
             <!-- asserter (max 1)-->
+            <!-- 20260825 Claude (B15a): Procedure.asserter only allows Patient|RelatedPerson|
+                 Practitioner|PractitionerRole (eicr-procedure 2.1.2 = us-core-procedure 3.1.1 = R4
+                 base). The informant used to fall through to XSLT built-in rules (the
+                 rename-reference-participant template matched only author|performer), leaking the
+                 informant's TEXT into the Procedure. Now an informant behaves like a performer:
+                 person -> PractitionerRole reference; org -> companion org-only PractitionerRole
+                 (created by the bundle-entry template above, mode org-practitionerrole-entry);
+                 device -> omitted (asserter is 0..1); patient-routed -> Patient reference (legal). -->
             <xsl:apply-templates select="cda:informant[1]" mode="rename-reference-participant">
                 <xsl:with-param name="pElementName">asserter</xsl:with-param>
+                <xsl:with-param name="pPersonOnlyTargets" select="true()" />
             </xsl:apply-templates>
 
             <!-- performers (multiple) -->
@@ -106,9 +126,11 @@
             </xsl:for-each>
             
             <!-- location -->
+            <!-- 20260729 Claude: Fix - added [1]; with more than one SDL participant the AVT space-joined all uuids into
+                 one malformed reference (Procedure.location is 0..1) -->
             <xsl:if test="cda:participant[cda:participantRole/cda:templateId[@root='2.16.840.1.113883.10.20.22.4.32']]">
                 <location>
-                    <reference value="urn:uuid:{cda:participant[cda:participantRole/cda:templateId[@root='2.16.840.1.113883.10.20.22.4.32']]/@lcg:uuid}" />
+                    <reference value="urn:uuid:{cda:participant[cda:participantRole/cda:templateId[@root='2.16.840.1.113883.10.20.22.4.32']][1]/@lcg:uuid}" />
                 </location>
             </xsl:if>
             
@@ -161,18 +183,15 @@
             </xsl:apply-templates>
             <xsl:call-template name="subject-reference" />
             <!-- encounter -->
-            <xsl:if test="cda:entryRelationship/cda:encounter/cda:id">
-                <xsl:variable name="vEncounterExtension">
-                    <xsl:value-of select="//cda:encompassingEncounter/cda:id/@extension" />
-                </xsl:variable>
-                <xsl:variable name="vEncounterRoot">
-                    <xsl:value-of select="//cda:encompassingEncounter/cda:id/@root" />
-                </xsl:variable>
-                <xsl:if test="cda:entryRelationship/cda:encounter/cda:id[@root = $vEncounterRoot][@extension = $vEncounterExtension]">
-                    <encounter>
-                        <reference value="urn:uuid:{//cda:encompassingEncounter/@lcg:uuid}" />
-                    </encounter>
-                </xsl:if>
+            <!-- 20260729 Claude: Fix - the match required @extension equality even when the encompassingEncounter id has
+                 no extension (an absent attribute never equals an empty string), so root-only ids could never match; now
+                 roots must match and extensions must either match or both be absent -->
+            <xsl:if test="
+                    cda:entryRelationship/cda:encounter/cda:id[some $e in /cda:ClinicalDocument/cda:componentOf/cda:encompassingEncounter/cda:id
+                        satisfies (@root = $e/@root and ((@extension = $e/@extension) or (not(@extension) and not($e/@extension))))]">
+                <encounter>
+                    <reference value="urn:uuid:{/cda:ClinicalDocument/cda:componentOf/cda:encompassingEncounter[1]/@lcg:uuid}" />
+                </encounter>
             </xsl:if>
 
             <xsl:apply-templates select="cda:effectiveTime" mode="period">
@@ -182,11 +201,27 @@
             <!-- recorder (max 1)-->
             <xsl:apply-templates select="cda:author[1]" mode="rename-reference-participant">
                 <xsl:with-param name="pElementName">recorder</xsl:with-param>
+                <!-- 20260824 Claude (per SG): Procedure.recorder only allows Practitioner|PractitionerRole|
+                     Patient|RelatedPerson. An author that is (or resolves to) an Organization is preserved
+                     by referencing a companion org-only PractitionerRole (created by the bundle-entry
+                     template above, mode org-practitionerrole-entry); a Device author is omitted
+                     (recorder is 0..1). Live in the TN eICR: hollow authors resolving to a person-less
+                     org author. See rename-reference-participant in c-to-fhir-utility.xslt. -->
+                <xsl:with-param name="pPersonOnlyTargets" select="true()" />
             </xsl:apply-templates>
 
             <!-- asserter (max 1)-->
+            <!-- 20260825 Claude (B15a): Procedure.asserter only allows Patient|RelatedPerson|
+                 Practitioner|PractitionerRole (eicr-procedure 2.1.2 = us-core-procedure 3.1.1 = R4
+                 base). The informant used to fall through to XSLT built-in rules (the
+                 rename-reference-participant template matched only author|performer), leaking the
+                 informant's TEXT into the Procedure. Now an informant behaves like a performer:
+                 person -> PractitionerRole reference; org -> companion org-only PractitionerRole
+                 (created by the bundle-entry template above, mode org-practitionerrole-entry);
+                 device -> omitted (asserter is 0..1); patient-routed -> Patient reference (legal). -->
             <xsl:apply-templates select="cda:informant[1]" mode="rename-reference-participant">
                 <xsl:with-param name="pElementName">asserter</xsl:with-param>
+                <xsl:with-param name="pPersonOnlyTargets" select="true()" />
             </xsl:apply-templates>
 
             <!-- performers (multiple) -->
@@ -199,9 +234,11 @@
             </xsl:for-each>
             
             <!-- location -->
+            <!-- 20260729 Claude: Fix - added [1]; with more than one SDL participant the AVT space-joined all uuids into
+                 one malformed reference (Procedure.location is 0..1) -->
             <xsl:if test="cda:participant[cda:participantRole/cda:templateId[@root='2.16.840.1.113883.10.20.22.4.32']]">
                 <location>
-                    <reference value="urn:uuid:{cda:participant[cda:participantRole/cda:templateId[@root='2.16.840.1.113883.10.20.22.4.32']]/@lcg:uuid}" />
+                    <reference value="urn:uuid:{cda:participant[cda:participantRole/cda:templateId[@root='2.16.840.1.113883.10.20.22.4.32']][1]/@lcg:uuid}" />
                 </location>
             </xsl:if>
             
@@ -217,13 +254,24 @@
                 <xsl:with-param name="pElementName" select="'bodySite'" />
             </xsl:apply-templates>
 
-            <xsl:apply-templates select="cda:participant/cda:participantRole/cda:templateId[@root = '2.16.840.1.113883.10.20.22.4.37']" />
-
             <!-- complication -->
             <xsl:for-each select="cda:entryRelationship/cda:observation[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.9']">
                 <complicationDetail>
                     <reference value="urn:uuid:{@lcg:uuid}" />
                 </complicationDetail>
+            </xsl:for-each>
+
+            <!-- focalDevice -->
+            <!-- 20260729 Claude: Fix - a stray apply-templates on the Product Instance templateId element (a no-op) sat
+                 where the device mapping belonged; Product Instance participants now map to focalDevice.manipulated
+                 (Bundle.xslt creates the Device entry with the participantRole's uuid, and fhir2cda maps
+                 focalDevice.manipulated back to a Product Instance participant) -->
+            <xsl:for-each select="cda:participant/cda:participantRole[cda:templateId/@root = '2.16.840.1.113883.10.20.22.4.37']">
+                <focalDevice>
+                    <manipulated>
+                        <reference value="urn:uuid:{@lcg:uuid}" />
+                    </manipulated>
+                </focalDevice>
             </xsl:for-each>
 
             <!-- usedReference:medication -->
@@ -256,18 +304,15 @@
             </xsl:apply-templates>
             <xsl:call-template name="subject-reference" />
             <!-- encounter -->
-            <xsl:if test="cda:entryRelationship/cda:encounter/cda:id">
-                <xsl:variable name="vEncounterExtension">
-                    <xsl:value-of select="//cda:encompassingEncounter/cda:id/@extension" />
-                </xsl:variable>
-                <xsl:variable name="vEncounterRoot">
-                    <xsl:value-of select="//cda:encompassingEncounter/cda:id/@root" />
-                </xsl:variable>
-                <xsl:if test="cda:entryRelationship/cda:encounter/cda:id[@root = $vEncounterRoot][@extension = $vEncounterExtension]">
-                    <encounter>
-                        <reference value="urn:uuid:{//cda:encompassingEncounter/@lcg:uuid}" />
-                    </encounter>
-                </xsl:if>
+            <!-- 20260729 Claude: Fix - the match required @extension equality even when the encompassingEncounter id has
+                 no extension (an absent attribute never equals an empty string), so root-only ids could never match; now
+                 roots must match and extensions must either match or both be absent -->
+            <xsl:if test="
+                    cda:entryRelationship/cda:encounter/cda:id[some $e in /cda:ClinicalDocument/cda:componentOf/cda:encompassingEncounter/cda:id
+                        satisfies (@root = $e/@root and ((@extension = $e/@extension) or (not(@extension) and not($e/@extension))))]">
+                <encounter>
+                    <reference value="urn:uuid:{/cda:ClinicalDocument/cda:componentOf/cda:encompassingEncounter[1]/@lcg:uuid}" />
+                </encounter>
             </xsl:if>
             <xsl:apply-templates select="cda:effectiveTime" mode="period">
                 <xsl:with-param name="pElementName">performedPeriod</xsl:with-param>
@@ -276,11 +321,27 @@
             <!-- recorder (max 1)-->
             <xsl:apply-templates select="cda:author[1]" mode="rename-reference-participant">
                 <xsl:with-param name="pElementName">recorder</xsl:with-param>
+                <!-- 20260824 Claude (per SG): Procedure.recorder only allows Practitioner|PractitionerRole|
+                     Patient|RelatedPerson. An author that is (or resolves to) an Organization is preserved
+                     by referencing a companion org-only PractitionerRole (created by the bundle-entry
+                     template above, mode org-practitionerrole-entry); a Device author is omitted
+                     (recorder is 0..1). Live in the TN eICR: hollow authors resolving to a person-less
+                     org author. See rename-reference-participant in c-to-fhir-utility.xslt. -->
+                <xsl:with-param name="pPersonOnlyTargets" select="true()" />
             </xsl:apply-templates>
 
             <!-- asserter (max 1)-->
+            <!-- 20260825 Claude (B15a): Procedure.asserter only allows Patient|RelatedPerson|
+                 Practitioner|PractitionerRole (eicr-procedure 2.1.2 = us-core-procedure 3.1.1 = R4
+                 base). The informant used to fall through to XSLT built-in rules (the
+                 rename-reference-participant template matched only author|performer), leaking the
+                 informant's TEXT into the Procedure. Now an informant behaves like a performer:
+                 person -> PractitionerRole reference; org -> companion org-only PractitionerRole
+                 (created by the bundle-entry template above, mode org-practitionerrole-entry);
+                 device -> omitted (asserter is 0..1); patient-routed -> Patient reference (legal). -->
             <xsl:apply-templates select="cda:informant[1]" mode="rename-reference-participant">
                 <xsl:with-param name="pElementName">asserter</xsl:with-param>
+                <xsl:with-param name="pPersonOnlyTargets" select="true()" />
             </xsl:apply-templates>
 
             <!-- performers (multiple) -->
@@ -293,9 +354,11 @@
             </xsl:for-each>
             
             <!-- location -->
+            <!-- 20260729 Claude: Fix - added [1]; with more than one SDL participant the AVT space-joined all uuids into
+                 one malformed reference (Procedure.location is 0..1) -->
             <xsl:if test="cda:participant[cda:participantRole/cda:templateId[@root='2.16.840.1.113883.10.20.22.4.32']]">
                 <location>
-                    <reference value="urn:uuid:{cda:participant[cda:participantRole/cda:templateId[@root='2.16.840.1.113883.10.20.22.4.32']]/@lcg:uuid}" />
+                    <reference value="urn:uuid:{cda:participant[cda:participantRole/cda:templateId[@root='2.16.840.1.113883.10.20.22.4.32']][1]/@lcg:uuid}" />
                 </location>
             </xsl:if>
             
@@ -369,9 +432,11 @@
                     <xsl:attribute name="value">entered-in-error</xsl:attribute>
                 </xsl:when>
                 <xsl:otherwise>
-                    <xsl:attribute name="value" select="completed" />
+                    <!-- 20260727 Claude: Fix - select="completed" was an unquoted XPath (a child-element step selecting nothing),
+                         producing an empty status value=""; quoted so the fallback is the string 'completed' -->
+                    <xsl:attribute name="value" select="'completed'" />
                 </xsl:otherwise>
             </xsl:choose>
         </status>
     </xsl:template>
-</xsl:stylesheet>
+</xsl:stylesheet>
